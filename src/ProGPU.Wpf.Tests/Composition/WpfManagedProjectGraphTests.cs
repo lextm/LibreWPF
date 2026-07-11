@@ -20804,7 +20804,7 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
-    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtons()
+    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtonsRegression()
     {
         var popup = File.ReadAllText(FindRepoPath(
             "src",

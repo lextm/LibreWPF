@@ -49,6 +49,36 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable, IPortable
 
     public IntPtr Handle => _source.Handle;
 
+    /// <summary>Resolves the native OS handle backing this portable host.</summary>
+    public bool TryGetNativeHandle(out IntPtr handle)
+    {
+        handle = IntPtr.Zero;
+        if (_host.SilkWindow is not { } silkWindow || silkWindow.Native is not { } native)
+        {
+            return false;
+        }
+
+        if (native.Cocoa is { } cocoa && cocoa != IntPtr.Zero)
+        {
+            handle = cocoa;
+            return true;
+        }
+
+        if (native.Win32 is { Item1: var hwnd } && hwnd != IntPtr.Zero)
+        {
+            handle = hwnd;
+            return true;
+        }
+
+        if (native.X11 is { Item2: var x11Window } && x11Window != UIntPtr.Zero)
+        {
+            handle = (IntPtr)x11Window;
+            return true;
+        }
+
+        return false;
+    }
+
     bool IPortableNativeCaretService.TryUpdate(object owner, in PortableRect clientBounds)
     {
         ThrowIfDisposed();
