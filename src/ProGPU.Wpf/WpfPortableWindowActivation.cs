@@ -294,6 +294,25 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         return false;
     }
 
+    /// <summary>
+    /// Resolves the native OS window handle backing a WPF <see cref="Window"/> on this ProGPU/
+    /// Silk.NET-hosted platform. Thin wrapper over the resolution that already lives on the
+    /// window's <see cref="WpfPortablePresentationSourceBridge.TryGetNativeHandle"/> - see that
+    /// member for what the handle actually is and why it exists alongside the portable
+    /// <c>Handle</c> WPF's <c>HwndSource</c> compat shim already exposes.
+    /// </summary>
+    public static bool TryGetNativeWindowHandle(object? window, out IntPtr handle)
+    {
+        handle = IntPtr.Zero;
+        if (!TryGetActiveHost(window, out var host) ||
+            host?.PortablePresentationSourceBridge is not { } bridge)
+        {
+            return false;
+        }
+
+        return bridge.TryGetNativeHandle(out handle);
+    }
+
     public static bool TryRegisterPresentationFrameworkLauncherService()
     {
         if (PortableWpfServiceRegistry.TryGetLauncherService(
