@@ -3341,8 +3341,6 @@ namespace System.Windows
             // those guard the real Win32 _swh (HwndSource) helper, which the portable backend never
             // populates at all - it would always be true here and this method would never run.
             bool changed = !DoubleUtil.AreClose(_actualLeft, left) || !DoubleUtil.AreClose(_actualTop, top);
-            TraceWindowMove("Window.HandlePortableMove left=" + left + " top=" + top +
-                " changed=" + changed + " captured=" + (Mouse.Captured?.GetType().FullName ?? "null"));
 
             if (changed)
             {
@@ -3382,7 +3380,6 @@ namespace System.Windows
                 if (Mouse.Captured != null && !mouseButtonHeld &&
                     !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)
                 {
-                    TraceWindowMoveCapture("HandlePortableMove RELEASE capture captured=" + (Mouse.Captured?.GetType().FullName ?? "null"));
                     Mouse.Capture(null);
                 }
             }
