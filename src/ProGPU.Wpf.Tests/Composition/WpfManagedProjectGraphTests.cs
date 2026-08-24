@@ -20785,6 +20785,9 @@ public sealed class WpfManagedProjectGraphTests
             "Only portable element-captured pressed drags may skip synthetic cursor resynchronization; popup subtree capture and Win32 must retain their paths.");
 
         var thumb = File.ReadAllText(FindRepoPath(
+    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtons()
+    {
+        var popup = File.ReadAllText(FindRepoPath(
             "src",
             "Microsoft.DotNet.Wpf",
             "src",
@@ -20801,6 +20804,32 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.True(releaseHandler >= 0 && positionRead > releaseHandler && releaseCapture > positionRead,
             "The drag-completion coordinate must be captured while the Thumb still owns mouse capture.");
+            "Popup.cs"));
+        var window = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Window.cs"));
+
+        // Showing a transient top-level window makes the OS reposition its owner on
+        // macOS (no WS_EX_NOACTIVATE). Releasing capture on such a spurious move
+        // dismissed the ComboBox/Menu dropdown that just opened via OnLostMouseCapture,
+        // so HandlePortableMove must suppress the release while our own popups are open.
+        Assert.Contains("s_wpfOpenPopupCount++;", popup, StringComparison.Ordinal);
+        Assert.Contains("s_wpfOpenPopupCount--;", popup, StringComparison.Ordinal);
+        Assert.Contains("internal static bool HasAnyOpenPopupInWpf => s_wpfOpenPopupCount > 0;", popup, StringComparison.Ordinal);
+
+        // Capture is also preserved while a button is physically held: that is an
+        // in-progress captured Thumb drag (e.g. an AvalonDock splitter), and ending it
+        // after one move was the original splitter-drag bug.
+        var mouseButtonHeld = "bool mouseButtonHeld =\n                    Mouse.LeftButton == MouseButtonState.Pressed ||";
+        var guardCondition = "!mouseButtonHeld &&\n                    !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)";
+        var captureRelease = "Mouse.Capture(null);";
+        Assert.Contains(mouseButtonHeld, window, StringComparison.Ordinal);
+        AssertGuardBefore(window, guardCondition, captureRelease);
     }
 
     private static void AssertGuardBefore(string source, string guard, string guardedCall)
