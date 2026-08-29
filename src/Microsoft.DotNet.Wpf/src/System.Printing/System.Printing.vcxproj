@@ -154,6 +154,11 @@
       <OutputItemType>_defineReference</OutputItemType>
       <Define>REACHFRAMEWORK_DLL</Define>
     </ProjectReference>
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>_defineReference</OutputItemType>
+      <Define>PROGPU_WPF_INTEROP_DLL</Define>
+    </ProjectReference>
   </ItemGroup>
   <!--
     PackageReferences to pass to CppCliHelper target

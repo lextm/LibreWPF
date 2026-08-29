@@ -205,7 +205,7 @@
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 
   <Target Name="AfterBuild" Inputs="@(Page)" Outputs="$(OutputPath)sdk\PUI.%(Page.Filename)%(Page.Extension)">
-    <Exec Command="$(PerlCommand) ThemeGenerator.pl %(Page.Identity) @(Page -> '$(IntermediateOutputPath)PUI.%(Filename)%(Extension)')" Condition="'%(Page.GenerateTheme)' == 'true'" StandardOutputImportance="normal" />
+    <Exec Command="$(PerlCommand) ThemeGenerator.ps1 %(Page.Identity) @(Page -> '$(IntermediateOutputPath)PUI.%(Filename)%(Extension)')" Condition="'%(Page.GenerateTheme)' == 'true'" StandardOutputImportance="normal" />
     <ItemGroup>
       <DataFile Condition="'%(Page.GenerateTheme)' == 'true' and Exists('$(IntermediateOutputPath)PUI.%(Page.Filename)%(Page.Extension)')" Include="$(IntermediateOutputPath)PUI.%(Page.Filename)%(Page.Extension)">
         <SubFolder>sdk</SubFolder>

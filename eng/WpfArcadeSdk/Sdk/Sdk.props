@@ -13,7 +13,7 @@
   <Import Project="$(WpfArcadeSdkToolsDir)ShippingProjects.props" />
 
   <PropertyGroup>
-    <GenXmlStringTable>$(WpfArcadeSdkToolsDir)GenXmlStringTable.pl</GenXmlStringTable>
+    <GenXmlStringTable>$(WpfArcadeSdkToolsDir)GenXmlStringTable.ps1</GenXmlStringTable>
     <LangVersion Condition="'$(LangVersion)'=='' and ($(PreReleaseVersionLabel.Contains('rc')) or $(PreReleaseVersionLabel.Contains('preview')) or $(PreReleaseVersionLabel.Contains('alpha')))">preview</LangVersion>
     <LangVersion Condition="'$(LangVersion)'==''">14</LangVersion>
     <CLSCompliant Condition="'$(CLSCompliant)'==''">true</CLSCompliant>
@@ -50,8 +50,8 @@
     <DebugType>full</DebugType>
     <DebugType Condition="'$(Configuration)'=='Release'">pdbonly</DebugType>
     
-    <PerlCommand Condition="'$(OS)' == 'Windows_NT'">"$(RepoRoot).tools\native\bin\strawberry-perl\$(StrawberryPerlVersion)\portableshell.bat"</PerlCommand>
-    <PerlCommand Condition="'$(OS)' != 'Windows_NT'">/usr/bin/perl</PerlCommand>
+    <PerlCommand Condition="'$(OS)' == 'Windows_NT'">pwsh -NoProfile -File</PerlCommand>
+    <PerlCommand Condition="'$(OS)' != 'Windows_NT'">pwsh -NoProfile -File</PerlCommand>
     
     <WpfCppProps>$(WpfArcadeSdkToolsDir)Wpf.Cpp.props</WpfCppProps>
     <GenerateModuleDefinitionFileTargets>$(WpfArcadeSdkToolsDir)GenerateModuleDefinitionFile.targets</GenerateModuleDefinitionFileTargets>

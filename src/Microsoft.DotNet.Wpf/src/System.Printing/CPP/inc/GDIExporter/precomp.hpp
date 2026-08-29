@@ -17,6 +17,7 @@
 
 #using REACHFRAMEWORK_DLL   as_friend
 #using PRESENTATIONCORE_DLL as_friend
+#using PROGPU_WPF_INTEROP_DLL as_friend
 
 using namespace System;
 using namespace System::Collections;
