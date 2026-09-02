@@ -699,7 +699,7 @@
 
   <Target Name="_ProGpuWpfSdkBuildWin32CompatShim"
           AfterTargets="CopyFilesToOutputDirectory"
-          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnableWin32CompatShim)' == 'true' And '$(_ProGpuWpfWin32CompatOutput)' != '' And (($([MSBuild]::IsOSPlatform('OSX')) And (!Exists('$(TargetDir)kernel32.dll') Or !Exists('$(TargetDir)user32.dll') Or !Exists('$(TargetDir)gdi32.dll') Or !Exists('$(TargetDir)dwmapi.dll') Or !Exists('$(TargetDir)uxtheme.dll') Or !Exists('$(TargetDir)shell32.dll') Or !Exists('$(TargetDir)gdiplus.dll') Or !Exists('$(TargetDir)comdlg32.dll'))) Or ($([MSBuild]::IsOSPlatform('Linux')) And (!Exists('$(TargetDir)kernel32.dll.so') Or !Exists('$(TargetDir)libkernel32.dll.so') Or !Exists('$(TargetDir)user32.dll.so') Or !Exists('$(TargetDir)libuser32.dll.so') Or !Exists('$(TargetDir)gdi32.dll.so') Or !Exists('$(TargetDir)libgdi32.dll.so') Or !Exists('$(TargetDir)dwmapi.dll.so') Or !Exists('$(TargetDir)libdwmapi.dll.so') Or !Exists('$(TargetDir)uxtheme.dll.so') Or !Exists('$(TargetDir)libuxtheme.dll.so') Or !Exists('$(TargetDir)shell32.dll.so') Or !Exists('$(TargetDir)libshell32.dll.so') Or !Exists('$(TargetDir)gdiplus.dll.so') Or !Exists('$(TargetDir)libgdiplus.dll.so') Or !Exists('$(TargetDir)comdlg32.dll.so') Or !Exists('$(TargetDir)libcomdlg32.dll.so'))))">
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnableWin32CompatShim)' == 'true' And '$(_ProGpuWpfWin32CompatOutput)' != '' And (($([MSBuild]::IsOSPlatform('OSX')) And (!Exists('$(TargetDir)kernel32.dll') Or !Exists('$(TargetDir)user32.dll') Or !Exists('$(TargetDir)gdi32.dll') Or !Exists('$(TargetDir)dwmapi.dll') Or !Exists('$(TargetDir)uxtheme.dll') Or !Exists('$(TargetDir)shell32.dll') Or !Exists('$(TargetDir)gdiplus.dll') Or !Exists('$(TargetDir)comdlg32.dll') Or !Exists('$(TargetDir)PresentationNative_cor3.dll'))) Or ($([MSBuild]::IsOSPlatform('Linux')) And (!Exists('$(TargetDir)kernel32.dll.so') Or !Exists('$(TargetDir)libkernel32.dll.so') Or !Exists('$(TargetDir)user32.dll.so') Or !Exists('$(TargetDir)libuser32.dll.so') Or !Exists('$(TargetDir)gdi32.dll.so') Or !Exists('$(TargetDir)libgdi32.dll.so') Or !Exists('$(TargetDir)dwmapi.dll.so') Or !Exists('$(TargetDir)libdwmapi.dll.so') Or !Exists('$(TargetDir)uxtheme.dll.so') Or !Exists('$(TargetDir)libuxtheme.dll.so') Or !Exists('$(TargetDir)shell32.dll.so') Or !Exists('$(TargetDir)libshell32.dll.so') Or !Exists('$(TargetDir)gdiplus.dll.so') Or !Exists('$(TargetDir)libgdiplus.dll.so') Or !Exists('$(TargetDir)comdlg32.dll.so') Or !Exists('$(TargetDir)libcomdlg32.dll.so') Or !Exists('$(TargetDir)PresentationNative_cor3.dll.so') Or !Exists('$(TargetDir)libPresentationNative_cor3.dll.so'))))">
     <MakeDir Directories="$(_ProGpuWpfWin32CompatIntermediateDirectory)" />
     <Exec Command="$(_ProGpuWpfWin32CompatCompileCommand)"
           StandardOutputImportance="Low"
@@ -729,6 +729,12 @@
       </_ProGpuWpfWin32CompatShim>
       <_ProGpuWpfWin32CompatShim Include="$(_ProGpuWpfWin32CompatOutput)">
         <TargetPath>$(TargetDir)comdlg32.dll</TargetPath>
+      </_ProGpuWpfWin32CompatShim>
+      <!-- Real Windows resolves SetWindowLong(Ptr)Wrapper etc. from PresentationNative_cor3.dll,
+           not user32.dll (NativeMethodsSetLastError.cs) - the shim exports these under their
+           wrapper names too, so it doubles as this library on OSX/Linux. -->
+      <_ProGpuWpfWin32CompatShim Include="$(_ProGpuWpfWin32CompatOutput)">
+        <TargetPath>$(TargetDir)PresentationNative_cor3.dll</TargetPath>
       </_ProGpuWpfWin32CompatShim>
     </ItemGroup>
 
@@ -780,6 +786,12 @@
       </_ProGpuWpfWin32CompatShim>
       <_ProGpuWpfWin32CompatShim Include="$(_ProGpuWpfWin32CompatOutput)">
         <TargetPath>$(TargetDir)libcomdlg32.dll.so</TargetPath>
+      </_ProGpuWpfWin32CompatShim>
+      <_ProGpuWpfWin32CompatShim Include="$(_ProGpuWpfWin32CompatOutput)">
+        <TargetPath>$(TargetDir)PresentationNative_cor3.dll.so</TargetPath>
+      </_ProGpuWpfWin32CompatShim>
+      <_ProGpuWpfWin32CompatShim Include="$(_ProGpuWpfWin32CompatOutput)">
+        <TargetPath>$(TargetDir)libPresentationNative_cor3.dll.so</TargetPath>
       </_ProGpuWpfWin32CompatShim>
     </ItemGroup>
 

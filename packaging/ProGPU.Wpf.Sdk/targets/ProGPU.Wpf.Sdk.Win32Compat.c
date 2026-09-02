@@ -1483,6 +1483,22 @@ PROGPU_EXPORT progpu_intptr SetWindowLongPtr(progpu_intptr window, int32_t index
     return progpu_set_window_long_value(window, index, value);
 }
 
+/* Real Windows resolves these two from PresentationNative_cor3.dll, not user32.dll - WPF ships a
+   bitness-safe wrapper around Set(Window|Class)Long(Ptr) rather than P/Invoking user32 directly
+   (see NativeMethodsSetLastError.cs's SetWindowLong(Ptr)Wrapper entry points). System.Windows.
+   Window.Flush() calls SetWindowLongPtr this way on every window shown, uncaught, so
+   PresentationNative_cor3.dll has to exist and export these under their wrapper names - this
+   shim is copied under that name too (see ProGPU.Wpf.Sdk.targets) for exactly this reason. */
+PROGPU_EXPORT int32_t SetWindowLongWrapper(progpu_intptr window, int32_t index, int32_t value)
+{
+    return SetWindowLong(window, index, value);
+}
+
+PROGPU_EXPORT progpu_intptr SetWindowLongPtrWrapper(progpu_intptr window, int32_t index, progpu_intptr value)
+{
+    return SetWindowLongPtr(window, index, value);
+}
+
 PROGPU_EXPORT int32_t SetClassLong(progpu_intptr window, int32_t index, int32_t value)
 {
     (void)window;
