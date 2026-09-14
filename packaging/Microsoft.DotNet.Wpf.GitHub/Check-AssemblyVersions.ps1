@@ -24,6 +24,10 @@ $nonRevAssemblies = $xmlDoc.package.files.file | `
     Where-Object { 
             ($_.target.StartsWith('lib\') -or $_.target.StartsWith('ref\')) `
                 -and $_.target.EndsWith('.dll', [System.StringComparison]::OrdinalIgnoreCase) `
+                -and !$_.target.EndsWith('Accessibility.dll', [System.StringComparison]::OrdinalIgnoreCase) `
+                -and !$_.target.EndsWith('Microsoft.Win32.SystemEvents.dll', [System.StringComparison]::OrdinalIgnoreCase) `
+                -and !$_.target.EndsWith('ProGPU.Wpf.Interop.dll', [System.StringComparison]::OrdinalIgnoreCase) `
+                -and !$_.target.EndsWith('System.Private.Windows.Core.dll', [System.StringComparison]::OrdinalIgnoreCase) `
                 -and !$_.target.EndsWith('resources.dll', [System.StringComparison]::OrdinalIgnoreCase)
         } | `
     Select-Object -Unique src | `
