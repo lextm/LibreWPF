@@ -40,6 +40,17 @@ try {
         $runtimeIdentifierProperty = "    <RuntimeIdentifier>$RuntimeIdentifier</RuntimeIdentifier>"
     }
 
+    # Without this, LibreWPF.Sdk defaults ProGpuWpfUseCurrentRuntimeIdentifier to true and assigns
+    # RuntimeIdentifier = $(NETCoreSdkRuntimeIdentifier) - so a smoke named "AnyCPU" would still build
+    # a RID-specific app and never exercise the RID-less path it exists to protect. It has to be a
+    # command-line property (see the dotnet restore/build calls below), NOT a value in the project:
+    # LibreWPF.Sdk's Sdk.props reads it and sets RuntimeIdentifier before the project body is
+    # evaluated, so a project-level value is applied too late to change anything.
+    $anyCpuArgument = @()
+    if ([string]::IsNullOrWhiteSpace($RuntimeIdentifier)) {
+        $anyCpuArgument = @("-p:ProGpuWpfUseCurrentRuntimeIdentifier=false")
+    }
+
     @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -128,16 +139,38 @@ public partial class MainWindow : Window
     {
         ContentRendered -= OnContentRendered;
 
-        string nativePath = Path.Combine(AppContext.BaseDirectory, "PresentationNative_cor3.dll");
-        if (!File.Exists(nativePath))
-        {
-            throw new FileNotFoundException("LibreWPF did not select the native WPF runtime for the current AnyCPU process.", nativePath);
-        }
-
+        string nativePath = FindNativeRuntime("PresentationNative_cor3.dll");
         _nativePath = nativePath;
         AssertTextRendered();
         AssertClipboardRoundTrip();
         _renderLifetimeTimer.Start();
+    }
+
+    /// <summary>
+    /// A RID-specific build copies the native WPF runtime flat into the app base; the RID-less
+    /// (AnyCPU) payload keeps it under runtimes/&lt;rid&gt;/native so one payload can carry every
+    /// architecture. Accept both layouts.
+    /// </summary>
+    private static string FindNativeRuntime(string fileName)
+    {
+        string flat = Path.Combine(AppContext.BaseDirectory, fileName);
+        if (File.Exists(flat))
+        {
+            return flat;
+        }
+
+        string runtimes = Path.Combine(AppContext.BaseDirectory, "runtimes");
+        if (Directory.Exists(runtimes))
+        {
+            foreach (string candidate in Directory.EnumerateFiles(runtimes, fileName, SearchOption.AllDirectories))
+            {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException(
+            "LibreWPF did not select the native WPF runtime for the current AnyCPU process (looked in the app base and the runtimes/ tree).",
+            flat);
     }
 
     private void AssertTextRendered()
@@ -198,10 +231,10 @@ public partial class MainWindow : Window
     $oldPackages = $env:NUGET_PACKAGES
     $env:NUGET_PACKAGES = $packagesRoot
     try {
-        dotnet restore (Join-Path $projectRoot "AnyCpuSmoke.csproj") --configfile (Join-Path $smokeRoot "NuGet.config") --force --no-cache
+        dotnet restore (Join-Path $projectRoot "AnyCpuSmoke.csproj") --configfile (Join-Path $smokeRoot "NuGet.config") --force --no-cache @anyCpuArgument
         if ($LASTEXITCODE -ne 0) { throw "LibreWPF Windows AnyCPU restore failed." }
 
-        dotnet build (Join-Path $projectRoot "AnyCpuSmoke.csproj") --no-restore -c $Configuration
+        dotnet build (Join-Path $projectRoot "AnyCpuSmoke.csproj") --no-restore -c $Configuration @anyCpuArgument
         if ($LASTEXITCODE -ne 0) { throw "LibreWPF Windows AnyCPU build failed." }
 
         $configurationOutput = Join-Path $projectRoot "bin/$Configuration"

@@ -83,6 +83,22 @@
     <None Include="@(_LibreWpfWinX86DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
     <None Include="@(_LibreWpfWinX64DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
     <None Include="@(_LibreWpfWinArm64DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
+    <!--
+      PresentationCore and DirectWriteForwarder are mixed-mode (IJW) assemblies. When a RID-less
+      application loads them from runtimes/<rid>/lib/net10.0, the OS loader resolves their native
+      dependencies relative to the assembly's own directory, and the .NET native search path
+      (runtimes/<rid>/native) is not consulted for that - so the load fails with
+      "The specified module could not be found" (ijwhost.dll / PresentationNative_cor3.dll). A
+      RID-specific build never sees this because every file is copied flat to the app base. Keep a
+      copy of the native shims beside the RID managed assemblies so the mixed-mode load resolves in
+      an AnyCPU payload too.
+    -->
+    <None Include="@(_LibreWpfWinX86Native)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
+    <None Include="@(_LibreWpfWinX64Native)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
+    <None Include="@(_LibreWpfWinArm64Native)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
+    <None Include="@(_LibreWpfWinX86IjwHost)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
+    <None Include="@(_LibreWpfWinX64IjwHost)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
+    <None Include="@(_LibreWpfWinArm64IjwHost)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
   </ItemGroup>
 
   <Target Name="_ValidateLibreWpfWindowsDesktopNativeAssets"
@@ -151,5 +167,37 @@
     </ItemGroup>
 
     <Delete Files="@(_StaleLibreWpfTransportPayload)" />
+  </Target>
+
+  <!--
+    RID-less (AnyCPU) portability. A NuGet package that carries a RID-matched runtimeTarget of
+    assetType=runtime is reconciled by the .NET host using that RID-filtered set AS the library's
+    runtime assets - the package's own lib/<tfm> "runtime" object is then ignored entirely. Because
+    this package intentionally ships only the two architecture-specific assemblies
+    (PresentationCore, DirectWriteForwarder) under runtimes/<rid>/lib/net10.0, an AnyCPU build
+    resolves THOSE two from the RID folder and loses every other managed assembly
+    ("Could not load file or assembly 'ProGPU.Wpf.Interop'"). Duplicating the full managed payload
+    into each RID folder makes the RID-filtered set complete, so one framework-dependent,
+    RuntimeIdentifier-less build runs on any CPU (the native assets are still selected per RID).
+    File names are added as pack items from lib/<tfm> before the package file list is collected;
+    the architecture-specific PresentationCore/DirectWriteForwarder are deliberately excluded here
+    and continue to come from the managed payload (the None/PackagePath items above).
+  -->
+  <Target Name="StageLibreWpfRidManagedTransportPayload"
+          BeforeTargets="_GetPackageFiles"
+          DependsOnTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true'">
+    <PropertyGroup>
+      <_LibreWpfStagedManagedLibDir>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\$(TargetFramework)'))</_LibreWpfStagedManagedLibDir>
+    </PropertyGroup>
+    <ItemGroup Condition="Exists('$(_LibreWpfStagedManagedLibDir)')">
+      <_LibreWpfRidManagedPayload Include="$(_LibreWpfStagedManagedLibDir)*.dll"
+                                  Exclude="$(_LibreWpfStagedManagedLibDir)PresentationCore.dll;$(_LibreWpfStagedManagedLibDir)DirectWriteForwarder.dll" />
+      <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-x86/lib/$(TargetFramework)" />
+      <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-x64/lib/$(TargetFramework)" />
+      <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-arm64/lib/$(TargetFramework)" />
+    </ItemGroup>
+    <Error Condition="'@(_LibreWpfRidManagedPayload)' == ''"
+           Text="The transport package's managed lib payload under '$(_LibreWpfStagedManagedLibDir)' was not found, so the per-RID managed payload cannot be completed." />
   </Target>
 </Project>

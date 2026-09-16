@@ -97,6 +97,35 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    AnyCPU/RID-less portability. NuGet restores the RID-less lib/<tfm> "runtime" set, and
+    _ProGpuWpfSdkCopyPackageRuntimeAssets flattens @(RuntimeCopyLocalItems) onto the app base. For
+    an assembly that ALSO has a RID-specific runtimeTarget (runtimes/<rid>/lib/<tfm>), that
+    flattened RID-less copy shadows the architecture/OS-correct one at load time: the host logs
+    "Replacing deps entry [runtimes/win/lib/.../System.Windows.Extensions.dll] with
+    [<appbase>\\System.Windows.Extensions.dll]" and WPF then throws
+    "System.Windows.Extensions types are not supported on this platform"; the same flattening would
+    shadow the arch-specific PresentationCore/DirectWriteForwarder. A RID-specific build never hits
+    this because NuGet selects the runtime target and flat really is correct. Drop only those assets
+    from the RID-less build output - the host resolves them per RID from the runtimes/ tree.
+  -->
+  <Target Name="_ProGpuWpfSdkDropRidSpecificRuntimeAssetsInRidlessBuild"
+          DependsOnTargets="ResolvePackageAssets;ResolveAssemblyReferences"
+          BeforeTargets="CopyFilesToOutputDirectory;GenerateBuildDependencyFile;GeneratePublishDependencyFile;_ProGpuWpfSdkCopyPackageRuntimeAssets;_ProGpuWpfSdkCopyManagedTransportRuntimeAssets"
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeIdentifier)' == ''">
+    <ItemGroup>
+      <_ProGpuWpfRidSpecificRuntimeAsset
+        Include="@(RuntimeTargetsCopyLocalItems)"
+        Condition="'%(RuntimeTargetsCopyLocalItems.AssetType)' == 'runtime'" />
+      <RuntimeCopyLocalItems Remove="@(_ProGpuWpfRidSpecificRuntimeAsset)"
+                             MatchOnMetadata="Filename"
+                             MatchOnMetadataOptions="CaseInsensitive" />
+      <ReferenceCopyLocalPaths Remove="@(_ProGpuWpfRidSpecificRuntimeAsset)"
+                               MatchOnMetadata="Filename"
+                               MatchOnMetadataOptions="CaseInsensitive" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup Condition="'$(_ProGpuWpfSdkBootstrap)' == 'true'">
     <Compile Remove="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs"
@@ -403,8 +432,8 @@
     PresentationCore with the selected win-x86/win-x64/win-arm64 runtime asset.
   -->
   <Target Name="_ProGpuWpfSdkPreserveManagedTransportRuntimeAssetsInDependencyFile"
-          DependsOnTargets="ResolveLockFileCopyLocalFiles;ResolveAssemblyReferences"
-          BeforeTargets="GenerateBuildDependencyFile"
+          DependsOnTargets="ResolvePackageAssets;ResolveLockFileCopyLocalFiles;ResolveAssemblyReferences"
+          BeforeTargets="GenerateBuildDependencyFile;GeneratePublishDependencyFile"
           Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package'">
     <ItemGroup>
       <_ProGpuWpfManagedTransportReferenceAnchor
@@ -435,9 +464,19 @@
       win-x86/win-x64/win-arm64 runtime asset remains authoritative.
     -->
     <ItemGroup>
+      <!--
+        A RID-specific runtimes/<rid>/lib/net10.0/PresentationCore.dll is authoritative when a
+        RuntimeIdentifier is set.  Without one there is no RID-selected asset to prefer, so
+        lib/<tfm>/PresentationCore.dll must be recorded too - otherwise an AnyCPU payload starts
+        with "Could not load file or assembly 'PresentationCore'".
+      -->
       <_ProGpuWpfManagedTransportDependencyRuntimeAsset
         Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
-        Exclude="$(_ProGpuWpfManagedTransportRuntimeRoot)PresentationCore.dll" />
+        Exclude="$(_ProGpuWpfManagedTransportRuntimeRoot)PresentationCore.dll"
+        Condition="'$(RuntimeIdentifier)' != ''" />
+      <_ProGpuWpfManagedTransportDependencyRuntimeAsset
+        Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
+        Condition="'$(RuntimeIdentifier)' == ''" />
       <_ProGpuWpfManagedTransportDependencyRuntimeAsset
         Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
         Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
@@ -451,6 +490,28 @@
         <DestinationSubPath>%(Filename)%(Extension)</DestinationSubPath>
         <DestinationSubDirectory></DestinationSubDirectory>
       </RuntimeCopyLocalItems>
+    </ItemGroup>
+
+    <!--
+      In a RID-less build the lib/<tfm>/*.dll items above can also already be in
+      ReferenceCopyLocalPaths - the transport ref/net10.0 assemblies are copy-local references
+      too - so _HandlePackageFileConflicts has already
+      recorded those runtime items in _ConflictPackageFiles (and
+      _HandlePackageFileConflictsForPublish in _PublishConflictPackageFiles).  Both
+      GenerateBuildDependencyFile and GeneratePublishDependencyFile then remove that conflict list
+      from their input by ItemSpec, which would delete exactly what this target just re-added, and
+      GenerateDepsFile trims a library with no runtime assets from the deps file entirely.  Drop
+      the transport entries from those lists for the RID-less case so the payload survives.
+      RID builds are unaffected: there the conflict entries are the runtimes/<rid>/... paths, not
+      these lib/<tfm> paths.
+    -->
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+      <_ConflictPackageFiles Remove="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
+                             MatchOnMetadata="Filename"
+                             MatchOnMetadataOptions="CaseInsensitive" />
+      <_PublishConflictPackageFiles Remove="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
+                                    MatchOnMetadata="Filename"
+                                    MatchOnMetadataOptions="CaseInsensitive" />
     </ItemGroup>
 
     <Error Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == '' Or '@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)' == ''"
@@ -484,7 +545,15 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll" />
+      <!--
+        In a RID-less build the architecture-specific PresentationCore/DirectWriteForwarder must not
+        be flattened onto the app base; the host resolves them per RID from the runtimes/ tree.
+      -->
+      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
+                                              Exclude="$(_ProGpuWpfManagedTransportRuntimeRoot)PresentationCore.dll;$(_ProGpuWpfManagedTransportRuntimeRoot)DirectWriteForwarder.dll"
+                                              Condition="'$(RuntimeIdentifier)' == ''" />
+      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
+                                              Condition="'$(RuntimeIdentifier)' != ''" />
       <_ProGpuWpfManagedTransportRuntimeAsset
         Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
         Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
