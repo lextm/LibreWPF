@@ -82,6 +82,8 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable, IPortable
         if (!double.IsFinite(value) || value < int.MinValue || value > int.MaxValue) return false;
         result = (int)Math.Round(value, MidpointRounding.AwayFromZero);
         return true;
+    }
+
     /// <summary>
     /// Resolves the native OS window handle backing this host's window on this ProGPU/Silk.NET-
     /// hosted platform - an NSWindow* on macOS, an HWND on Windows, or an X11 Window id on Linux

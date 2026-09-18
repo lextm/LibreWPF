@@ -20785,9 +20785,6 @@ public sealed class WpfManagedProjectGraphTests
             "Only portable element-captured pressed drags may skip synthetic cursor resynchronization; popup subtree capture and Win32 must retain their paths.");
 
         var thumb = File.ReadAllText(FindRepoPath(
-    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtons()
-    {
-        var popup = File.ReadAllText(FindRepoPath(
             "src",
             "Microsoft.DotNet.Wpf",
             "src",
@@ -20804,82 +20801,6 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.True(releaseHandler >= 0 && positionRead > releaseHandler && releaseCapture > positionRead,
             "The drag-completion coordinate must be captured while the Thumb still owns mouse capture.");
-            "Popup.cs"));
-    public void PortableMiscFixesKeepDesignerWorkloadsAlive()
-    {
-        // Synthetic input can deliver a mouse-up without a matching down (the injected
-        // down may be dropped while the window activates). Skipping the up left
-        // Mouse.LeftButton stuck Pressed for the app lifetime; forward it verbatim.
-        var inputService = File.ReadAllText(FindRepoPath(
-            "src",
-            "ProGPU.Wpf",
-            "Platform",
-            "SilkNetWpfInputService.cs"));
-        Assert.Contains("pressedButtons.Remove(button);", inputService, StringComparison.Ordinal);
-        Assert.DoesNotContain("if (!pressedButtons.Remove(button))\n                {\n                    return;", inputService, StringComparison.Ordinal);
-
-        // Input callbacks that throw must marshal to the window dispatcher instead of
-        // tearing down the native loop - mirrors what the Framework designer surface did.
-        var activationService = File.ReadAllText(FindRepoPath(
-            "src",
-            "ProGPU.Wpf",
-            "WpfPortableWindowActivation.cs"));
-        Assert.Contains("private bool TryReportInputExceptionToWindowDispatcher(Exception exception)", activationService, StringComparison.Ordinal);
-
-        // Expose the genuine OS window handle (NSWindow*/HWND/X11 Window) for interop -
-        // the compat-shim Handle is synthetic and never a real platform handle.
-        var presentationSourceBridge = File.ReadAllText(FindRepoPath(
-            "src",
-            "ProGPU.Wpf",
-            "WpfPortablePresentationSourceBridge.cs"));
-        Assert.Contains("public bool TryGetNativeHandle(out IntPtr handle)", presentationSourceBridge, StringComparison.Ordinal);
-
-        // Custom chrome applied via Style Setter races ahead of Show()'s activate; sync
-        // border state once activation exists or the native title bar stays visible.
-        var window = File.ReadAllText(FindRepoPath(
-            "src",
-            "Microsoft.DotNet.Wpf",
-            "src",
-            "PresentationFramework",
-            "System",
-            "Windows",
-            "Window.cs"));
-
-        // Showing a transient top-level window makes the OS reposition its owner on
-        // macOS (no WS_EX_NOACTIVATE). Releasing capture on such a spurious move
-        // dismissed the ComboBox/Menu dropdown that just opened via OnLostMouseCapture,
-        // so HandlePortableMove must suppress the release while our own popups are open.
-        Assert.Contains("s_wpfOpenPopupCount++;", popup, StringComparison.Ordinal);
-        Assert.Contains("s_wpfOpenPopupCount--;", popup, StringComparison.Ordinal);
-        Assert.Contains("internal static bool HasAnyOpenPopupInWpf => s_wpfOpenPopupCount > 0;", popup, StringComparison.Ordinal);
-
-        // Capture is also preserved while a button is physically held: that is an
-        // in-progress captured Thumb drag (e.g. an AvalonDock splitter), and ending it
-        // after one move was the original splitter-drag bug.
-        var mouseButtonHeld = "bool mouseButtonHeld =\n                    Mouse.LeftButton == MouseButtonState.Pressed ||";
-        var guardCondition = "!mouseButtonHeld &&\n                    !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)";
-        var captureRelease = "Mouse.Capture(null);";
-        Assert.Contains(mouseButtonHeld, window, StringComparison.Ordinal);
-        AssertGuardBefore(window, guardCondition, captureRelease);
-        var chromeSync = "if (_hasPortableCustomChrome)\n            {\n                PortableWindowActivationService.SetWindowBorder(";
-        Assert.Contains(chromeSync, window, StringComparison.Ordinal);
-
-        // Adapted pen thickness must leave local space to match ProGPU render-command
-        // contract, or images/geometry stroked with adapted pens repaint incorrectly.
-        var compositionCommandSink = File.ReadAllText(FindRepoPath(
-            "src",
-            "ProGPU.Wpf",
-            "Composition",
-            "ProGpuCompositionCommandSink.cs"));
-        Assert.Contains("private VectorPen? ScalePenThicknessToDeviceSpace(VectorPen? pen)", compositionCommandSink, StringComparison.Ordinal);
-
-        // CopyFromScreen has no portable implementation; read the compositor backbuffer
-        // and encode PNG for cross-platform screenshots instead.
-        var screenshot = File.ReadAllText(FindRepoPath(
-            "src",
-            "ProGPU.Wpf",
-            "ProGpuWpfScreenshot.cs"));
-        Assert.Contains("public static byte[]? TryCapturePng(object window)", screenshot, StringComparison.Ordinal);
     }
 
     private static void AssertGuardBefore(string source, string guard, string guardedCall)
@@ -20937,5 +20858,106 @@ public sealed class WpfManagedProjectGraphTests
         }
 
         throw new FileNotFoundException($"Could not locate repo file '{Path.Combine(pathSegments)}' from the test output directory.");
+    }
+
+    [Fact]
+    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtons()
+    {
+        var popup = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Controls",
+            "Primitives",
+            "Popup.cs"));
+        var window = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Window.cs"));
+
+        // Showing a transient top-level window makes the OS reposition its owner on
+        // macOS (no WS_EX_NOACTIVATE). Releasing capture on such a spurious move
+        // dismissed the ComboBox/Menu dropdown that just opened via OnLostMouseCapture,
+        // so HandlePortableMove must suppress the release while our own popups are open.
+        Assert.Contains("s_wpfOpenPopupCount++;", popup, StringComparison.Ordinal);
+        Assert.Contains("s_wpfOpenPopupCount--;", popup, StringComparison.Ordinal);
+        Assert.Contains("internal static bool HasAnyOpenPopupInWpf => s_wpfOpenPopupCount > 0;", popup, StringComparison.Ordinal);
+
+        // Capture is also preserved while a button is physically held: that is an
+        // in-progress captured Thumb drag (e.g. an AvalonDock splitter), and ending it
+        // after one move was the original splitter-drag bug.
+        var mouseButtonHeld = "bool mouseButtonHeld =\n                    Mouse.LeftButton == MouseButtonState.Pressed ||";
+        var guardCondition = "!mouseButtonHeld &&\n                    !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)";
+        var captureRelease = "Mouse.Capture(null);";
+        Assert.Contains(mouseButtonHeld, window, StringComparison.Ordinal);
+        AssertGuardBefore(window, guardCondition, captureRelease);
+    }
+
+    [Fact]
+    public void PortableMiscFixesKeepDesignerWorkloadsAlive()
+    {
+        // Synthetic input can deliver a mouse-up without a matching down (the injected
+        // down may be dropped while the window activates). Skipping the up left
+        // Mouse.LeftButton stuck Pressed for the app lifetime; forward it verbatim.
+        var inputService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "Platform",
+            "SilkNetWpfInputService.cs"));
+        Assert.Contains("pressedButtons.Remove(button);", inputService, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (!pressedButtons.Remove(button))\n                {\n                    return;", inputService, StringComparison.Ordinal);
+
+        // Input callbacks that throw must marshal to the window dispatcher instead of
+        // tearing down the native loop - mirrors what the Framework designer surface did.
+        var activationService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortableWindowActivation.cs"));
+        Assert.Contains("private bool TryReportInputExceptionToWindowDispatcher(Exception exception)", activationService, StringComparison.Ordinal);
+
+        // Expose the genuine OS window handle (NSWindow*/HWND/X11 Window) for interop -
+        // the compat-shim Handle is synthetic and never a real platform handle.
+        var presentationSourceBridge = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortablePresentationSourceBridge.cs"));
+        Assert.Contains("public bool TryGetNativeHandle(out IntPtr handle)", presentationSourceBridge, StringComparison.Ordinal);
+
+        // Custom chrome applied via Style Setter races ahead of Show()'s activate; sync
+        // border state once activation exists or the native title bar stays visible.
+        var window = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Window.cs"));
+        var chromeSync = "if (_hasPortableCustomChrome)\n            {\n                PortableWindowActivationService.SetWindowBorder(";
+        Assert.Contains(chromeSync, window, StringComparison.Ordinal);
+
+        // Adapted pen thickness must leave local space to match ProGPU render-command
+        // contract, or images/geometry stroked with adapted pens repaint incorrectly.
+        var compositionCommandSink = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "Composition",
+            "ProGpuCompositionCommandSink.cs"));
+        Assert.Contains("private VectorPen? ScalePenThicknessToDeviceSpace(VectorPen? pen)", compositionCommandSink, StringComparison.Ordinal);
+
+        // CopyFromScreen has no portable implementation; read the compositor backbuffer
+        // and encode PNG for cross-platform screenshots instead.
+        var screenshot = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "ProGpuWpfScreenshot.cs"));
+        Assert.Contains("public static byte[]? TryCapturePng(object window)", screenshot, StringComparison.Ordinal);
     }
 }
