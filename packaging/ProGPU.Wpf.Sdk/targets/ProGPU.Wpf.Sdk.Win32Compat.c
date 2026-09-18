@@ -779,17 +779,12 @@ PROGPU_EXPORT progpu_intptr SetActiveWindow(progpu_intptr window)
     return previous;
 }
 
-PROGPU_EXPORT progpu_intptr GetActiveWindow(void)
-{
-    return progpu_active_window;
-}
-
 /* A NULL/0 return is Win32's own "no active window" result (there is no error case to report
    here), so this needs no fallback handling on the WPF side - unlike GetModuleFileName below,
    whose callers treat a 0 return as failure. */
 PROGPU_EXPORT progpu_intptr GetActiveWindow(void)
 {
-    return 0;
+    return progpu_active_window;
 }
 
 /* Same "0 is a legitimate answer" shape as GetActiveWindow above. */
