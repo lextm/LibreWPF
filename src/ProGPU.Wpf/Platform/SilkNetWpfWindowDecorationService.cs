@@ -383,6 +383,43 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         }
     }
 
+    /// <summary>
+    /// Gives a borderless window square (menu-popup-like) corners on macOS, which rounds every
+    /// window's corners since Big Sur. Best-effort: any interop failure leaves the window as it was.
+    /// </summary>
+    [SupportedOSPlatform("macos")]
+    public void ApplySquareCorners(object window)
+    {
+        if (window is not IView view)
+        {
+            return;
+        }
+
+        var nsWindow = GetCocoaWindow(view);
+        if (nsWindow == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            // Menu/popup windows are square because they are borderless (NSWindowStyleMaskBorderless
+            // == 0): AppKit only rounds a window that still carries the titled theme frame. Mirror
+            // that native call so a splash gets the same square look.
+            IntPtr setStyleMaskSelector = SelRegisterName("setStyleMask:");
+            if (setStyleMaskSelector != IntPtr.Zero)
+            {
+                ObjCMsgSend(nsWindow, setStyleMaskSelector, IntPtr.Zero);
+            }
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+    }
+
     [SupportedOSPlatform("macos")]
     private static bool TryBeginCocoaDragMove(IntPtr nsWindow)
     {

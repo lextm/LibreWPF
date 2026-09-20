@@ -1363,6 +1363,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             _window!.IsVisible = true;
         }
+
+        // A borderless window (WPF WindowStyle=None, e.g. a splash) is expected to look like a
+        // menu popup - square corners - but macOS rounds every window since Big Sur. Best-effort
+        // native call; ignored platforms just do nothing.
+        if (_windowBorder is ProGpuWpfWindowBorder.Hidden or ProGpuWpfWindowBorder.HiddenResizable)
+        {
+            PlatformServices.WindowDecorations.ApplySquareCorners(_window!);
+        }
     }
 
     internal void DeferShowUntilRun()

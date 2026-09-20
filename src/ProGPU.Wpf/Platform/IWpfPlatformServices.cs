@@ -188,6 +188,16 @@ public interface IWpfWindowDecorationService
         return false;
     }
 
+    /// <summary>
+    /// Removes the platform's default rounded *native window* corners for a borderless window.
+    /// macOS has rounded every window's corners since Big Sur, including borderless ones, which
+    /// shows up on a splash/notification-style window as unwanted rounding. A no-op where the
+    /// platform does not round windows or the caller never asks.
+    /// </summary>
+    void ApplySquareCorners(object window)
+    {
+    }
+
     bool TryShowWithoutActivation(object window)
     {
         return false;
