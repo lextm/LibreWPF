@@ -510,7 +510,17 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         try
         {
             if (!Host.TrySetNativeOwner(ownerHost))
-                throw new PlatformNotSupportedException("The native host rejected top-level window ownership.");
+            {
+                // The native host can legitimately refuse an owner. The common case is a dialog
+                // raised from a Window.Closing handler: WPF gives it the active window as owner,
+                // which is the window whose close has already started, and TrySetNativeOwner
+                // rejects exactly that. That is ordinary WPF (a "save changes?" prompt), so a
+                // refused native owner must not be fatal - keep the managed owner for WPF's own
+                // semantics and leave the window unowned natively.
+                _ownerWindow = owner;
+                UpdateNonActivatingOwnedWindowRegistration();
+                return;
+            }
             _nativeOwnerWindow = owner;
             _ownerWindow = owner;
             UpdateNonActivatingOwnedWindowRegistration();
