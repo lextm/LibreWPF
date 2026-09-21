@@ -11,6 +11,10 @@ export LibreWpfSourceRoot="${repo_root}/"
 export LibreWinFormsSourceRoot="${librewinforms_root}/"
 configuration="${CONFIGURATION:-Release}"
 target_framework="net10.0"
+# The local Windows feed is built with LibreWPF's newer private SDK; its
+# pinned beta ApiCompat tool cannot load that SDK's generated reference data.
+export RunNetFrameworkApiCompat="${RunNetFrameworkApiCompat:-false}"
+export RunRefApiCompat="${RunRefApiCompat:-false}"
 canonical_support_package_version="${PROGPU_WPF_CANONICAL_SUPPORT_PACKAGE_VERSION:-10.0.10}"
 canonical_package_output="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 
@@ -67,6 +71,18 @@ if [[ -z "${dotnet_command}" ]] || ! "${dotnet_command}" msbuild -version >/dev/
   exit 1
 fi
 
+# The canonical WindowsFormsIntegration graph includes C++/CLI projects.  dist.local.sh normally
+# supplies this environment, but this gate is also useful on its own, so locate the installed VS
+# C++ targets when they have not already been provided.
+if [[ "${OSTYPE:-}" == msys* || "${OS:-}" == Windows_NT ]]; then
+  if [[ -z "${VCTargetsPath:-}" ]]; then
+    vs_vc_targets='C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Microsoft/VC/v180'
+    if [[ -f "${vs_vc_targets}/Microsoft.Cpp.Default.props" ]]; then
+      export VCTargetsPath="$(cygpath -w "${vs_vc_targets}")\\"
+    fi
+  fi
+fi
+
 if [[ "${PROGPU_WPF_RUN_DRAWING_QUALITY_GATES:-1}" == "1" ]]; then
   echo "Verifying the pinned ProGPU System.Drawing API contract..."
   (cd "${progpu_root}" && ./eng/progpu-verify-system-drawing-api.sh)
@@ -90,6 +106,18 @@ echo "Building canonical LibreWinForms runtime and design assemblies for ${targe
   -p:LibreWinFormsUseProGpuSystemDrawing=true \
   -p:LibreWinFormsProGpuSourceRoot="${progpu_root}/" \
   -p:ContinuousIntegrationBuild=true
+
+# WindowsFormsIntegration is C++/CLI and therefore architecture-specific.  Match the host by
+# default so the local Windows release can smoke-test its actual payload; callers building a
+# different slice may override this explicitly.
+canonical_platform="${PROGPU_WPF_CANONICAL_WINFORMS_PLATFORM:-}"
+if [[ -z "${canonical_platform}" ]]; then
+  case "${PROCESSOR_ARCHITECTURE:-}" in
+    ARM64) canonical_platform="ARM64" ;;
+    *) canonical_platform="x64" ;;
+  esac
+fi
+export Platform="${canonical_platform}"
 
 winforms_assembly_root="${librewinforms_root}/artifacts/bin/System.Windows.Forms/${configuration}/${target_framework}/"
 progpu_interop_root="${repo_root}/src/ProGPU.Wpf.Interop/bin/${configuration}/${target_framework}/"
@@ -209,6 +237,10 @@ echo "Building the WPF reference and implementation-cycle foundation..."
 canonical_properties=(
   -p:ProGpuWpfCanonicalWinFormsAssemblyRoot="${winforms_assembly_root}"
   -p:ProGpuWpfCanonicalProGpuAssemblyRoot="${progpu_interop_root}"
+  # The Windows local-feed uses LibreWPF's newer private SDK to build this
+  # canonical handoff; the pinned beta ApiCompat tool cannot consume it.
+  -p:RunNetFrameworkApiCompat=false
+  -p:RunRefApiCompat=false
   -p:ContinuousIntegrationBuild=true
 )
 ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/WindowsFormsIntegration/ref/WindowsFormsIntegration-ref.csproj"
@@ -234,8 +266,8 @@ echo "Building canonical WindowsFormsIntegration implementation..."
   -warnaserror:MSB3243,MSB3277 \
   "${canonical_properties[@]}"
 
-ref_output="${repo_root}/artifacts/bin/WindowsFormsIntegration-ref/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
-implementation_output="${repo_root}/artifacts/bin/WindowsFormsIntegration/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
+ref_output="${repo_root}/artifacts/bin/WindowsFormsIntegration-ref/${Platform}/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
+implementation_output="${repo_root}/artifacts/bin/WindowsFormsIntegration/${Platform}/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
 if [[ ! -f "${ref_output}" || ! -f "${implementation_output}" ]]; then
   echo "Canonical WindowsFormsIntegration did not produce both reference and implementation assemblies." >&2
   exit 1
@@ -304,6 +336,9 @@ do
 done
 
 echo "Packing canonical System.Windows.Forms ${canonical_package_version}..."
+# Return to the host platform for the WinForms pack so Roslyn can load its
+# source generator. The x64 LibreWPF native prerequisites are already built.
+unset Platform
 NetCurrent="${target_framework}" \
   "${librewinforms_root}/eng/common/dotnet.sh" pack \
   "${librewinforms_root}/packaging/LibreWinForms.System.Windows.Forms/LibreWinForms.System.Windows.Forms.csproj" \
@@ -340,6 +375,7 @@ echo "Packing canonical WindowsFormsIntegration ${canonical_package_version}..."
   -p:PackageVersion="${canonical_package_version}" \
   -p:LibreWinFormsCanonicalPackageVersion="${canonical_package_version}" \
   -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
+  -p:Platform="${canonical_platform}" \
   -p:ContinuousIntegrationBuild=true
 
 for package_file in "${canonical_forms_package}" "${canonical_backend_package}" "${canonical_integration_package}"; do

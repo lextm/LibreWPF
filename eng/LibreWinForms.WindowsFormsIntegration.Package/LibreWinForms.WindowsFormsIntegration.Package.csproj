@@ -14,6 +14,8 @@
     <LibreWinFormsCanonicalPackageVersion Condition="'$(LibreWinFormsCanonicalPackageVersion)' == ''">$(PackageVersion)</LibreWinFormsCanonicalPackageVersion>
     <CanonicalWindowsFormsIntegrationOutput>$(ArtifactsDir)bin/WindowsFormsIntegration/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationOutput>
     <CanonicalWindowsFormsIntegrationReferenceOutput>$(ArtifactsDir)bin/WindowsFormsIntegration-ref/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationReferenceOutput>
+    <CanonicalWindowsFormsIntegrationOutput Condition="'$(Platform)' != ''">$(ArtifactsDir)bin/WindowsFormsIntegration/$(Platform)/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationOutput>
+    <CanonicalWindowsFormsIntegrationReferenceOutput Condition="'$(Platform)' != ''">$(ArtifactsDir)bin/WindowsFormsIntegration-ref/$(Platform)/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationReferenceOutput>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);CollectCanonicalWindowsFormsIntegrationPackageFiles</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
