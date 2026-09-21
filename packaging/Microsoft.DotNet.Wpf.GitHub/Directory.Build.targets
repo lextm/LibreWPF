@@ -18,6 +18,16 @@
                       PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    WindowsFormsIntegration is supplied by LibreWinForms.WindowsFormsIntegration.
+    Remove it while the pack item set is evaluated: removing it only from the
+    staging folder later leaves NuGet with a stale source-file entry.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
+    <Content Remove="$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\**\WindowsFormsIntegration.*" />
+    <Content Remove="$(ArtifactsPackagingDir)$(NormalizedPackageName)\ref\**\WindowsFormsIntegration.*" />
+  </ItemGroup>
+
   <!-- 
     Inspect the following NuSpecs and validate the assembly versions
         * .\artifacts\packages\Release\NonShipping\LibreWPF.Transport.<version>.nuspec produced by LibreWPF.Transport.ArchNeutral.csproj
