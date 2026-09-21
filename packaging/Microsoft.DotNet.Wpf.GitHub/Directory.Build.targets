@@ -75,6 +75,8 @@
         Include="@(_ManagedWpfTransportWindowsFormsIntegrationPayload)"
         Condition="Exists('%(_ManagedWpfTransportWindowsFormsIntegrationPayload.Identity)')" />
       <Content Remove="@(_ManagedWpfTransportWindowsFormsIntegrationPayload)" />
+      <Content Remove="@(Content)"
+               Condition="'%(Content.Filename)' == 'WindowsFormsIntegration'" />
     </ItemGroup>
 
     <Delete Files="@(_ExistingManagedWpfTransportWindowsFormsIntegrationPayload)" />

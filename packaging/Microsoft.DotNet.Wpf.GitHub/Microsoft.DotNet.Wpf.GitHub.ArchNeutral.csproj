@@ -177,7 +177,7 @@
     </PropertyGroup>
     <ItemGroup Condition="Exists('$(_LibreWpfStagedManagedLibDir)')">
       <_LibreWpfRidManagedPayload Include="$(_LibreWpfStagedManagedLibDir)*.dll"
-                                  Exclude="$(_LibreWpfStagedManagedLibDir)PresentationCore.dll;$(_LibreWpfStagedManagedLibDir)DirectWriteForwarder.dll" />
+                                  Exclude="$(_LibreWpfStagedManagedLibDir)PresentationCore.dll;$(_LibreWpfStagedManagedLibDir)DirectWriteForwarder.dll;$(_LibreWpfStagedManagedLibDir)WindowsFormsIntegration.dll" />
       <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-x64/lib/$(TargetFramework)" />
       <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-arm64/lib/$(TargetFramework)" />
     </ItemGroup>

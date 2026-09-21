@@ -409,6 +409,10 @@ $(PreparePackageAssetsDependsOn):
         <Pack>true</Pack>
         <PackagePath>%(PackagingRootFolderSubFolders.Identity)</PackagePath>
       </Content>
+
+      <!-- LibreWPF.Transport consumes the canonical bridge as a package dependency. -->
+      <Content Remove="@(Content)"
+               Condition="$(PackageName.Contains('LibreWPF.Transport')) And '%(Content.Filename)' == 'WindowsFormsIntegration'" />
     </ItemGroup>
 
   </Target>
