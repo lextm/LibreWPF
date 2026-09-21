@@ -62,7 +62,7 @@
 
   <Target Name="ExcludeManagedWpfTransportWindowsFormsIntegrationPayload"
           AfterTargets="CreateContentFolder"
-          BeforeTargets="ValidateManagedWpfTransportPayload;GenerateNuspec"
+          BeforeTargets="ValidateManagedWpfTransportPayload;GenerateNuspec;_GetPackageFiles"
           Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
     <PropertyGroup>
       <_ManagedWpfTransportRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)</_ManagedWpfTransportRoot>
