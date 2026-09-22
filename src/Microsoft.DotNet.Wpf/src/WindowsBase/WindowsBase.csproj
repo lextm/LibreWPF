@@ -370,7 +370,7 @@
    -->
   <Target Name="GenerateSources" BeforeTargets="CoreCompile" Inputs="MS\Internal\IO\Packaging\PackageXmlNamespaces.txt;MS\Internal\IO\Packaging\PackageXmlStrings.txt;" Outputs="$(IntermediateOutputPath)\PackageXmlStringTable.cs">
     <MakeDir Condition="!Exists('$(IntermediateOutputPath)')" Directories="$(IntermediateOutputPath)" />
-    <Exec Command="$(PerlCommand) $(GenXmlStringTable) -o $(IntermediateOutputPath)\PackageXmlStringTable.cs -n MS\Internal\IO\Packaging\PackageXmlNamespaces.txt -x MS\Internal\IO\Packaging\PackageXmlStrings.txt -e MS.Internal.IO.Packaging.PackageXmlEnum -c MS.Internal.IO.Packaging.PackageXmlStringTable" StandardOutputImportance="normal" Outputs="$(IntermediateOutputPath)\PackageXmlStringTable.cs">
+    <Exec Command="$(PerlCommand) $(GenXmlStringTable) -o $(IntermediateOutputPath)PackageXmlStringTable.cs -n MS/Internal/IO/Packaging/PackageXmlNamespaces.txt -x MS/Internal/IO/Packaging/PackageXmlStrings.txt -e MS.Internal.IO.Packaging.PackageXmlEnum -c MS.Internal.IO.Packaging.PackageXmlStringTable" StandardOutputImportance="normal" Outputs="$(IntermediateOutputPath)\PackageXmlStringTable.cs">
       <Output TaskParameter="Outputs" ItemName="Compile" />
     </Exec>
   </Target>

@@ -110,14 +110,22 @@ echo "Building canonical LibreWinForms runtime and design assemblies for ${targe
 # WindowsFormsIntegration is C++/CLI and therefore architecture-specific.  Match the host by
 # default so the local Windows release can smoke-test its actual payload; callers building a
 # different slice may override this explicitly.
+# Windows ships both x64 and ARM64 slices, so it always selects one. Other hosts build the portable
+# graph without a platform unless a slice is requested explicitly.
 canonical_platform="${PROGPU_WPF_CANONICAL_WINFORMS_PLATFORM:-}"
-if [[ -z "${canonical_platform}" ]]; then
+if [[ -z "${canonical_platform}" && ( "${OSTYPE:-}" == msys* || "${OS:-}" == Windows_NT ) ]]; then
   case "${PROCESSOR_ARCHITECTURE:-}" in
     ARM64) canonical_platform="ARM64" ;;
     *) canonical_platform="x64" ;;
   esac
 fi
-export Platform="${canonical_platform}"
+canonical_platform_segment=""
+canonical_platform_arguments=()
+if [[ -n "${canonical_platform}" ]]; then
+  export Platform="${canonical_platform}"
+  canonical_platform_segment="${canonical_platform}/"
+  canonical_platform_arguments=(-p:Platform="${canonical_platform}")
+fi
 
 winforms_assembly_root="${librewinforms_root}/artifacts/bin/System.Windows.Forms/${configuration}/${target_framework}/"
 progpu_interop_root="${repo_root}/src/ProGPU.Wpf.Interop/bin/${configuration}/${target_framework}/"
@@ -266,8 +274,8 @@ echo "Building canonical WindowsFormsIntegration implementation..."
   -warnaserror:MSB3243,MSB3277 \
   "${canonical_properties[@]}"
 
-ref_output="${repo_root}/artifacts/bin/WindowsFormsIntegration-ref/${Platform}/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
-implementation_output="${repo_root}/artifacts/bin/WindowsFormsIntegration/${Platform}/${configuration}/${target_framework}/WindowsFormsIntegration.dll"
+ref_output="${repo_root}/artifacts/bin/WindowsFormsIntegration-ref/${canonical_platform_segment}${configuration}/${target_framework}/WindowsFormsIntegration.dll"
+implementation_output="${repo_root}/artifacts/bin/WindowsFormsIntegration/${canonical_platform_segment}${configuration}/${target_framework}/WindowsFormsIntegration.dll"
 if [[ ! -f "${ref_output}" || ! -f "${implementation_output}" ]]; then
   echo "Canonical WindowsFormsIntegration did not produce both reference and implementation assemblies." >&2
   exit 1
@@ -375,7 +383,7 @@ echo "Packing canonical WindowsFormsIntegration ${canonical_package_version}..."
   -p:PackageVersion="${canonical_package_version}" \
   -p:LibreWinFormsCanonicalPackageVersion="${canonical_package_version}" \
   -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
-  -p:Platform="${canonical_platform}" \
+  ${canonical_platform_arguments[@]+"${canonical_platform_arguments[@]}"} \
   -p:ContinuousIntegrationBuild=true
 
 for package_file in "${canonical_forms_package}" "${canonical_backend_package}" "${canonical_integration_package}"; do
