@@ -31,11 +31,14 @@
       Repack only the native assets. NuGet then selects the process RID at restore
       time without exposing the stock managed WPF assemblies to the consumer.
     -->
-    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-x86"
-                      Version="$(LibreWpfWindowsDesktopRuntimeVersion)"
-                      GeneratePathProperty="true"
-                      ExcludeAssets="all"
-                      PrivateAssets="all" />
+    <!--
+      win-x86 is deliberately not shipped. The pinned Microsoft.NETCore.App.Host.win-x86 pack
+      cannot be restored from the feed this repository builds against (it 401s on content while
+      still being indexed, so NuGet does not fall back), which makes DirectWriteForwarder
+      unbuildable for x86 with NETSDK1114 "Unable to find a .NET Core IJW host". A runtimes/win-x86
+      folder without those two assemblies is worse than none at all: NuGet would select the
+      RID-filtered set and find it incomplete. x64 and arm64 are the supported targets.
+    -->
     <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-x64"
                       Version="$(LibreWpfWindowsDesktopRuntimeVersion)"
                       GeneratePathProperty="true"
@@ -50,25 +53,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_LibreWpfWinX86Native Include="$(_LibreWpfNuGetPackageRoot)microsoft.windowsdesktop.app.runtime.win-x86/$(LibreWpfWindowsDesktopRuntimeVersion)/runtimes/win-x86/native/*.dll" />
     <_LibreWpfWinX64Native Include="$(_LibreWpfNuGetPackageRoot)microsoft.windowsdesktop.app.runtime.win-x64/$(LibreWpfWindowsDesktopRuntimeVersion)/runtimes/win-x64/native/*.dll" />
     <_LibreWpfWinArm64Native Include="$(_LibreWpfNuGetPackageRoot)microsoft.windowsdesktop.app.runtime.win-arm64/$(LibreWpfWindowsDesktopRuntimeVersion)/runtimes/win-arm64/native/*.dll" />
     <_LibreWpfWindowsDesktopLicense Include="$(_LibreWpfNuGetPackageRoot)microsoft.windowsdesktop.app.runtime.win-x64/$(LibreWpfWindowsDesktopRuntimeVersion)/LICENSE" />
-    <_LibreWpfWinX86PresentationCore Include="$(LibreWpfWindowsManagedPayloadDir)/win-x86/net10.0/PresentationCore.dll" />
     <_LibreWpfWinX64PresentationCore Include="$(LibreWpfWindowsManagedPayloadDir)/win-x64/net10.0/PresentationCore.dll" />
     <_LibreWpfWinArm64PresentationCore Include="$(LibreWpfWindowsManagedPayloadDir)/win-arm64/net10.0/PresentationCore.dll" />
-    <_LibreWpfWinX86DirectWriteForwarder Include="$(LibreWpfWindowsManagedPayloadDir)/win-x86/net10.0/DirectWriteForwarder.dll" />
     <_LibreWpfWinX64DirectWriteForwarder Include="$(LibreWpfWindowsManagedPayloadDir)/win-x64/net10.0/DirectWriteForwarder.dll" />
     <_LibreWpfWinArm64DirectWriteForwarder Include="$(LibreWpfWindowsManagedPayloadDir)/win-arm64/net10.0/DirectWriteForwarder.dll" />
-    <_LibreWpfWinX86IjwHost Include="$(LibreWpfWindowsManagedPayloadDir)/win-x86/native/ijwhost.dll" />
     <_LibreWpfWinX64IjwHost Include="$(LibreWpfWindowsManagedPayloadDir)/win-x64/native/ijwhost.dll" />
     <_LibreWpfWinArm64IjwHost Include="$(LibreWpfWindowsManagedPayloadDir)/win-arm64/native/ijwhost.dll" />
 
     <!-- These are NuGet pack items, independent of WPF Arcade's single-platform staging folder. -->
-    <None Include="@(_LibreWpfWinX86Native)" Pack="true" PackagePath="runtimes/win-x86/native" />
     <None Include="@(_LibreWpfWinX64Native)" Pack="true" PackagePath="runtimes/win-x64/native" />
     <None Include="@(_LibreWpfWinArm64Native)" Pack="true" PackagePath="runtimes/win-arm64/native" />
-    <None Include="@(_LibreWpfWinX86IjwHost)" Pack="true" PackagePath="runtimes/win-x86/native" />
     <None Include="@(_LibreWpfWinX64IjwHost)" Pack="true" PackagePath="runtimes/win-x64/native" />
     <None Include="@(_LibreWpfWinArm64IjwHost)" Pack="true" PackagePath="runtimes/win-arm64/native" />
     <None Include="@(_LibreWpfWindowsDesktopLicense)" Pack="true" PackagePath="notices/Microsoft.WindowsDesktop.App.Runtime" />
@@ -77,10 +74,8 @@
       DirectWrite on Windows, portable SFNT elsewhere. Keep the portable build in
       lib/net10.0 and let NuGet select this AnyCPU Windows build at runtime.
     -->
-    <None Include="@(_LibreWpfWinX86PresentationCore)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
     <None Include="@(_LibreWpfWinX64PresentationCore)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
     <None Include="@(_LibreWpfWinArm64PresentationCore)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
-    <None Include="@(_LibreWpfWinX86DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
     <None Include="@(_LibreWpfWinX64DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
     <None Include="@(_LibreWpfWinArm64DirectWriteForwarder)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
     <!--
@@ -93,38 +88,28 @@
       copy of the native shims beside the RID managed assemblies so the mixed-mode load resolves in
       an AnyCPU payload too.
     -->
-    <None Include="@(_LibreWpfWinX86Native)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
     <None Include="@(_LibreWpfWinX64Native)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
     <None Include="@(_LibreWpfWinArm64Native)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
-    <None Include="@(_LibreWpfWinX86IjwHost)" Pack="true" PackagePath="runtimes/win-x86/lib/net10.0" />
     <None Include="@(_LibreWpfWinX64IjwHost)" Pack="true" PackagePath="runtimes/win-x64/lib/net10.0" />
     <None Include="@(_LibreWpfWinArm64IjwHost)" Pack="true" PackagePath="runtimes/win-arm64/lib/net10.0" />
   </ItemGroup>
 
   <Target Name="_ValidateLibreWpfWindowsDesktopNativeAssets"
           BeforeTargets="GenerateNuspec">
-    <Error Condition="'@(_LibreWpfWinX86Native)' == ''"
-           Text="Microsoft.WindowsDesktop.App.Runtime.win-x86 $(LibreWpfWindowsDesktopRuntimeVersion) native assets were not restored." />
     <Error Condition="'@(_LibreWpfWinX64Native)' == ''"
            Text="Microsoft.WindowsDesktop.App.Runtime.win-x64 $(LibreWpfWindowsDesktopRuntimeVersion) native assets were not restored." />
     <Error Condition="'@(_LibreWpfWinArm64Native)' == ''"
            Text="Microsoft.WindowsDesktop.App.Runtime.win-arm64 $(LibreWpfWindowsDesktopRuntimeVersion) native assets were not restored." />
     <Error Condition="'@(_LibreWpfWindowsDesktopLicense)' == ''"
            Text="Microsoft.WindowsDesktop.App.Runtime $(LibreWpfWindowsDesktopRuntimeVersion) license was not restored." />
-    <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x86/net10.0/PresentationCore.dll')"
-           Text="The win-x86 PresentationCore payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x64/net10.0/PresentationCore.dll')"
            Text="The win-x64 PresentationCore payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-arm64/net10.0/PresentationCore.dll')"
            Text="The win-arm64 PresentationCore payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
-    <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x86/net10.0/DirectWriteForwarder.dll')"
-           Text="The win-x86 DirectWriteForwarder payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x64/net10.0/DirectWriteForwarder.dll')"
            Text="The win-x64 DirectWriteForwarder payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-arm64/net10.0/DirectWriteForwarder.dll')"
            Text="The win-arm64 DirectWriteForwarder payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
-    <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x86/native/ijwhost.dll')"
-           Text="The win-x86 IJW host payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-x64/native/ijwhost.dll')"
            Text="The win-x64 IJW host payload is missing under $(LibreWpfWindowsManagedPayloadDir)." />
     <Error Condition="!Exists('$(LibreWpfWindowsManagedPayloadDir)/win-arm64/native/ijwhost.dll')"
@@ -193,7 +178,6 @@
     <ItemGroup Condition="Exists('$(_LibreWpfStagedManagedLibDir)')">
       <_LibreWpfRidManagedPayload Include="$(_LibreWpfStagedManagedLibDir)*.dll"
                                   Exclude="$(_LibreWpfStagedManagedLibDir)PresentationCore.dll;$(_LibreWpfStagedManagedLibDir)DirectWriteForwarder.dll" />
-      <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-x86/lib/$(TargetFramework)" />
       <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-x64/lib/$(TargetFramework)" />
       <None Include="@(_LibreWpfRidManagedPayload)" Pack="true" PackagePath="runtimes/win-arm64/lib/$(TargetFramework)" />
     </ItemGroup>

@@ -50,12 +50,50 @@
       - PresentationBuildTasks is excluded on purpose: it is an MSBuild task assembly the build
         deliberately produces as x86 (see eng/progpu-wpf-windows-managed-runtime.ps1).
       - Test and harness projects are left alone so their architecture-targeted runs keep working.
+
+    Microsoft.Win32.SystemEvents belongs on the list for a reason worth spelling out: it is pure
+    managed code, it ships in lib/net10.0, AND the transport packaging duplicates the whole managed
+    payload into all three runtimes/<rid>/lib folders
+    (StageLibreWpfRidManagedTransportPayload). One architecture stamp therefore lands in three
+    places, two of which cannot load it.
+
+    WindowsFormsIntegration is here for the same reason, against an older assumption that it is
+    genuinely architecture-specific and therefore needs one canonical feed per architecture
+    (artifacts/canonical-winforms-feed and canonical-winforms-feed-x64). It is not: the arm64 and
+    x64 canonical packages contain byte-identical assemblies - 87040 bytes in lib/, 32256 in ref/ -
+    differing only in the machine field, which is exactly the "no architecture-specific IL" test
+    this whole property group is built on. One AnyCPU asset serves both, and the dual feeds then
+    simply carry the same bytes rather than encoding a difference that does not exist.
   -->
   <PropertyGroup>
-    <LibreWpfArchNeutralTransportAssemblies>WindowsBase;System.Xaml;UIAutomationTypes;UIAutomationProvider;System.Windows.Input.Manipulations;System.Windows.Primitives;System.Windows.Presentation;PresentationCore;ReachFramework;PresentationUI;PresentationFramework;System.Windows.Controls.Ribbon;PresentationFramework.Aero;PresentationFramework.Aero2;PresentationFramework.AeroLite;PresentationFramework.Classic;PresentationFramework.Fluent;PresentationFramework.Luna;PresentationFramework.Royale</LibreWpfArchNeutralTransportAssemblies>
+    <LibreWpfArchNeutralTransportAssemblies>WindowsBase;System.Xaml;UIAutomationTypes;UIAutomationProvider;System.Windows.Input.Manipulations;System.Windows.Primitives;System.Windows.Presentation;PresentationCore;ReachFramework;PresentationUI;PresentationFramework;System.Windows.Controls.Ribbon;PresentationFramework.Aero;PresentationFramework.Aero2;PresentationFramework.AeroLite;PresentationFramework.Classic;PresentationFramework.Fluent;PresentationFramework.Luna;PresentationFramework.Royale;Microsoft.Win32.SystemEvents;WindowsFormsIntegration</LibreWpfArchNeutralTransportAssemblies>
     <_LibreWpfArchNeutralList>;$(LibreWpfArchNeutralTransportAssemblies);</_LibreWpfArchNeutralList>
   </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectExtension)'=='.csproj' and $(_LibreWpfArchNeutralList.Contains(';$(MSBuildProjectName);'))">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+  <!--
+    Every reference assembly is AnyCPU, unconditionally - a wider rule than the whitelist above,
+    because it rests on a different fact: a reference assembly is compiled against and never
+    loaded, so its PE machine field carries no information and can only do harm.
+
+    The harm is a compile-time one and therefore easy to miss. csc reports an arch-stamped
+    reference as "CS8012: Referenced assembly 'X' targets a different processor", which is only a
+    WARNING in most projects - so an x64 ref/ tree looks completely clean until it reaches a
+    consumer with TreatWarningsAsErrors, where it becomes an unexplained build break in one
+    project while the rest of the solution is silent. (OpenDevelop's AvalonDock themes, four
+    CS8012 errors, after a local feed rebuild.) It is latent as well: projects already compiled
+    against the previous package do not recompile until something else invalidates them.
+
+    These projects are matched by the "-ref" filename suffix, which is why the whitelist above
+    misses them: it lists implementation assembly names, and MSBuildProjectName here is
+    "WindowsBase-ref", not "WindowsBase". The suffix is the convention throughout
+    src/Microsoft.DotNet.Wpf/src/*/ref, including the C# reference projects that front the C++/CLI
+    System.Printing and WindowsFormsIntegration - those are AnyCPU too, since only their
+    implementations are architecture-specific.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)'=='.csproj' and $(MSBuildProjectName.EndsWith('-ref'))">
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 

@@ -454,6 +454,27 @@
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(PkgLibreWPF_Transport)' != ''">$([MSBuild]::EnsureTrailingSlash('$(PkgLibreWPF_Transport)'))lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportRuntimeRoot>
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == '' And '$(_ProGpuWpfManagedTransportResolvedRuntimeDirectory)' != ''">$([MSBuild]::EnsureTrailingSlash('$(_ProGpuWpfManagedTransportResolvedRuntimeDirectory)'))</_ProGpuWpfManagedTransportRuntimeRoot>
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == ''">$(_ProGpuWpfManagedTransportPackageRoot)librewpf.transport/$(ProGpuWpfManagedPackageVersion)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportRuntimeRoot>
+      <!--
+        The runtimes/<rid> tree for the architecture this output will run as. Used by the RID-less
+        branch below, to avoid recording an architecture-stamped assembly out of the RID-neutral
+        lib/ folder. NETCoreSdkRuntimeIdentifier is the SDK's own RID, which is the architecture a
+        RID-less framework-dependent app is launched as by that SDK's muxer. With an explicit
+        RuntimeIdentifier the deps file needs no help - NuGet has already selected the RID assets -
+        but the property is defined the same way in both cases so it stays in step with the copy
+        target further down, which does need the preference in both branches.
+      -->
+      <_ProGpuWpfManagedTransportEffectiveRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ProGpuWpfManagedTransportEffectiveRid>
+      <!-- Deliberately not PlatformTarget; see the copy target for why it is the wrong signal. -->
+      <_ProGpuWpfManagedTransportEffectiveRid Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_ProGpuWpfManagedTransportEffectiveRid>
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(PkgLibreWPF_Transport)' != ''">$([MSBuild]::EnsureTrailingSlash('$(PkgLibreWPF_Transport)'))runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportHostRidRoot>
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(_ProGpuWpfManagedTransportHostRidRoot)' == '' And '$(_ProGpuWpfManagedTransportPackageRoot)' != ''">$(_ProGpuWpfManagedTransportPackageRoot)librewpf.transport/$(ProGpuWpfManagedPackageVersion)/runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportHostRidRoot>
+      <!--
+        Neither PkgLibreWPF_Transport nor a package root is necessarily set here - the lib/ root is
+        commonly reached through the ref/->lib/ rewrite above - so derive the sibling runtimes tree
+        from whichever lib/ root was actually resolved. The package id contains no "/lib/" segment,
+        so this rewrites only the framework folder.
+      -->
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(_ProGpuWpfManagedTransportHostRidRoot)' == '' And '$(_ProGpuWpfManagedTransportRuntimeRoot)' != ''">$([System.String]::Copy('$(_ProGpuWpfManagedTransportRuntimeRoot)').Replace('\lib\', '\runtimes\$(_ProGpuWpfManagedTransportEffectiveRid)\lib\').Replace('/lib/', '/runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/'))</_ProGpuWpfManagedTransportHostRidRoot>
     </PropertyGroup>
 
     <!--
@@ -477,9 +498,59 @@
       <_ProGpuWpfManagedTransportDependencyRuntimeAsset
         Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
         Condition="'$(RuntimeIdentifier)' == ''" />
+      <!--
+        lib/<tfm> is RID-neutral by layout, not by content: DirectWriteForwarder is C++/CLI and so
+        can never be AnyCPU, and Microsoft.Win32.SystemEvents ships architecture-stamped too, which
+        means whichever architecture produced the payload is what every consumer gets. Flattening
+        those onto the app base breaks consumers of any other bitness, and it breaks them in a way
+        that hides the cause: the CLR does not JIT around a wrong-architecture managed assembly, it
+        fails the load and reports "Could not load file or assembly 'X'" for a file that is sitting
+        right there in the output folder. An x64 DirectWriteForwarder took down the whole ARM64
+        test host this way.
+
+        So take any file that also exists under runtimes/<effective rid>/ from there instead. That
+        preserves the reason this branch records lib/ at all - an AnyCPU payload still needs a
+        PresentationCore next to it - while never handing out the wrong architecture, and it covers
+        future arch-stamped assemblies without naming them here.
+
+        This applies with an explicit RuntimeIdentifier too, which is easy to get wrong: it looks
+        as though the deps file needs no help there, because NuGet has already selected the RID
+        assets. But RuntimeCopyLocalItems is not only the deps file's input - it is also what
+        _ProGpuWpfSdkCopyPackageRuntimeAssets physically flattens onto the app base, and that
+        target runs AFTER _ProGpuWpfSdkCopyManagedTransportRuntimeAssets. Gating this on a missing
+        RuntimeIdentifier therefore let the copy target put the correct per-RID
+        DirectWriteForwarder in place, only for lib/'s copy to overwrite it moments later. The
+        observable result was an x64 apphost sitting beside an arm64 DirectWriteForwarder, and an
+        application that died before Main with "Could not load file or assembly
+        'DirectWriteForwarder'".
+      -->
+      <_ProGpuWpfManagedTransportHostRidAsset
+        Include="$(_ProGpuWpfManagedTransportHostRidRoot)*.dll"
+        Condition="'$(_ProGpuWpfManagedTransportHostRidRoot)' != '' And Exists('$(_ProGpuWpfManagedTransportHostRidRoot)')" />
+      <_ProGpuWpfManagedTransportDependencyRuntimeAsset
+        Remove="@(_ProGpuWpfManagedTransportHostRidAsset)"
+        MatchOnMetadata="Filename"
+        MatchOnMetadataOptions="CaseInsensitive"
+        Condition="'@(_ProGpuWpfManagedTransportHostRidAsset)' != ''" />
+      <_ProGpuWpfManagedTransportDependencyRuntimeAsset
+        Include="@(_ProGpuWpfManagedTransportHostRidAsset)"
+        Condition="'@(_ProGpuWpfManagedTransportHostRidAsset)' != ''" />
+      <!--
+        Never record a ref/ assembly as a runtime asset - it has no method bodies, so the runtime
+        rejects it with "Reference assemblies cannot be loaded for execution" before any app code
+        runs. The roots above are partly derived by rewriting a ref/ path into a lib/ one, and the
+        anchor that rewrite starts from is not reliably a single path, so filter on the resolved
+        path rather than trusting how the item was produced. Same guard as in the copy target.
+      -->
+      <_ProGpuWpfManagedTransportDependencyRuntimeAsset
+        Remove="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
+        Condition="$([System.String]::Copy('%(FullPath)').Replace('/', '\').Contains('\ref\'))" />
       <_ProGpuWpfManagedTransportDependencyRuntimeAsset
         Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
         Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
+      <RuntimeCopyLocalItems Remove="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
+                             MatchOnMetadata="Filename"
+                             MatchOnMetadataOptions="CaseInsensitive" />
       <RuntimeCopyLocalItems
         Include="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
         Exclude="@(RuntimeCopyLocalItems)">
@@ -542,21 +613,94 @@
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(PkgLibreWPF_Transport)' != ''">$([MSBuild]::EnsureTrailingSlash('$(PkgLibreWPF_Transport)'))lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportRuntimeRoot>
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == '' And '$(_ProGpuWpfManagedTransportResolvedRuntimeDirectory)' != ''">$([MSBuild]::EnsureTrailingSlash('$(_ProGpuWpfManagedTransportResolvedRuntimeDirectory)'))</_ProGpuWpfManagedTransportRuntimeRoot>
       <_ProGpuWpfManagedTransportRuntimeRoot Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == ''">$(_ProGpuWpfManagedTransportPackageRoot)librewpf.transport/$(ProGpuWpfManagedPackageVersion)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportRuntimeRoot>
+      <!--
+        The architecture this output will actually run as: the explicit RuntimeIdentifier when the
+        project has one, otherwise the SDK's own RID, which is what a RID-less framework-dependent
+        app is launched as by that SDK's muxer. Both cases need the per-RID preference below, so
+        this is deliberately NOT restricted to the RID-less one.
+      -->
+      <_ProGpuWpfManagedTransportEffectiveRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ProGpuWpfManagedTransportEffectiveRid>
+      <!--
+        NOT PlatformTarget. It looks like the right signal - it is nominally the output's
+        architecture - but on a project with ProGpuWpfUseCurrentRuntimeIdentifier=true it can
+        disagree with the apphost that is actually produced, because that property derives the RID
+        from the architecture of the BUILDING PROCESS. Building such a project from an x64 IDE on
+        an ARM64 machine yields an x64 apphost while PlatformTarget still evaluates to arm64.
+        Preferring PlatformTarget there produced an arm64 DirectWriteForwarder beside an x64
+        apphost, which is the same failure this whole ordering exists to prevent. That case needs
+        fixing where the RID is chosen, not here.
+      -->
+      <_ProGpuWpfManagedTransportEffectiveRid Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_ProGpuWpfManagedTransportEffectiveRid>
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(PkgLibreWPF_Transport)' != ''">$([MSBuild]::EnsureTrailingSlash('$(PkgLibreWPF_Transport)'))runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportHostRidRoot>
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(_ProGpuWpfManagedTransportHostRidRoot)' == '' And '$(_ProGpuWpfManagedTransportPackageRoot)' != ''">$(_ProGpuWpfManagedTransportPackageRoot)librewpf.transport/$(ProGpuWpfManagedPackageVersion)/runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/</_ProGpuWpfManagedTransportHostRidRoot>
+      <!--
+        Last resort, and in practice the one that fires: neither PkgLibreWPF_Transport nor a
+        package root is necessarily set here - _ProGpuWpfManagedTransportRuntimeRoot is commonly
+        reached through the ref/->lib/ rewrite above instead - and with both empty the two
+        composed paths above stay empty, so the per-RID preference silently did nothing and lib/
+        was copied anyway. Deriving the sibling tree from the lib/ root that was actually resolved
+        works no matter which of the three fallbacks produced it. The package id contains no
+        "/lib/" segment, so this rewrites only the framework folder.
+      -->
+      <_ProGpuWpfManagedTransportHostRidRoot Condition="'$(_ProGpuWpfManagedTransportEffectiveRid)' != '' And '$(_ProGpuWpfManagedTransportHostRidRoot)' == '' And '$(_ProGpuWpfManagedTransportRuntimeRoot)' != ''">$([System.String]::Copy('$(_ProGpuWpfManagedTransportRuntimeRoot)').Replace('\lib\', '\runtimes\$(_ProGpuWpfManagedTransportEffectiveRid)\lib\').Replace('/lib/', '/runtimes/$(_ProGpuWpfManagedTransportEffectiveRid)/lib/'))</_ProGpuWpfManagedTransportHostRidRoot>
     </PropertyGroup>
 
     <ItemGroup>
       <!--
-        In a RID-less build the architecture-specific PresentationCore/DirectWriteForwarder must not
-        be flattened onto the app base; the host resolves them per RID from the runtimes/ tree.
+        lib/<tfm> is RID-neutral by layout, not by content: DirectWriteForwarder is C++/CLI and so
+        can never be AnyCPU, and Microsoft.Win32.SystemEvents ships architecture-stamped too, which
+        means whichever architecture produced the payload is what lib/ hands every consumer.
+        Flattening those onto the app base breaks consumers of any other bitness, and it breaks
+        them in a way that hides the cause: the CLR does not JIT around a wrong-architecture
+        managed assembly, it fails the load and reports "Could not load file or assembly 'X'" for a
+        file that is sitting right there in the output folder.
+
+        This target runs AFTER NuGet has already placed the correct runtimes/<rid> assets, so the
+        RID branch was the worse of the two: it copied lib/ wholesale and silently overwrote them.
+        On an ARM64 machine the build log showed the arm64 DirectWriteForwarder copied first and
+        the x64 one copied over it moments later, taking down the whole ARM64 test host.
+
+        So prefer runtimes/<effective rid>/ for every file that exists there, in BOTH branches.
+        Naming no assemblies here means a future architecture-stamped one is covered automatically.
       -->
-      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
-                                              Exclude="$(_ProGpuWpfManagedTransportRuntimeRoot)PresentationCore.dll;$(_ProGpuWpfManagedTransportRuntimeRoot)DirectWriteForwarder.dll"
-                                              Condition="'$(RuntimeIdentifier)' == ''" />
-      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
-                                              Condition="'$(RuntimeIdentifier)' != ''" />
+      <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll" />
       <_ProGpuWpfManagedTransportRuntimeAsset
         Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
         Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
+      <_ProGpuWpfManagedTransportHostRidRuntimeAsset
+                                              Include="$(_ProGpuWpfManagedTransportHostRidRoot)*.dll"
+                                              Condition="'$(_ProGpuWpfManagedTransportHostRidRoot)' != '' And Exists('$(_ProGpuWpfManagedTransportHostRidRoot)')" />
+      <_ProGpuWpfManagedTransportRuntimeAsset Remove="@(_ProGpuWpfManagedTransportHostRidRuntimeAsset)"
+                                              MatchOnMetadata="Filename"
+                                              MatchOnMetadataOptions="CaseInsensitive"
+                                              Condition="'@(_ProGpuWpfManagedTransportHostRidRuntimeAsset)' != ''" />
+      <_ProGpuWpfManagedTransportRuntimeAsset Include="@(_ProGpuWpfManagedTransportHostRidRuntimeAsset)"
+                                              Condition="'@(_ProGpuWpfManagedTransportHostRidRuntimeAsset)' != ''" />
+      <!--
+        No runtimes/<rid> tree at all (an unexpected payload shape): PresentationCore and
+        DirectWriteForwarder from lib/ are then the only copies there are, so they still get
+        flattened rather than leaving the output unable to start.
+      -->
+
+      <!--
+        Nothing from a ref/ directory may ever reach the output. A reference assembly has no
+        method bodies, so the runtime refuses it outright:
+
+          BadImageFormatException: Could not load file or assembly 'WindowsBase, Version=11.0.0.0'.
+          Reference assemblies cannot be loaded for execution.
+
+        thrown from ProGpuWpfSdkPortableBootstrap.Initialize() before any of the app's own code
+        runs. This is a real hazard rather than a theoretical one, because the roots above are
+        partly derived by rewriting a ref/ path into a lib/ one, and the anchor property that
+        rewrite starts from is not always a single path - when it comes through as
+        "<...>\ref\net10.0\PresentationFramework.dll;<...>\ref\net10.0" the semicolon makes
+        MSBuild read the Include as TWO items, and the first is a reference assembly. The result
+        is a 96 KB WindowsBase.dll sitting in bin next to the 1 MB implementation it replaced.
+        Filter on the resolved path so it cannot matter how the item got here.
+      -->
+      <_ProGpuWpfManagedTransportRuntimeAsset
+        Remove="@(_ProGpuWpfManagedTransportRuntimeAsset)"
+        Condition="$([System.String]::Copy('%(FullPath)').Replace('/', '\').Contains('\ref\'))" />
     </ItemGroup>
 
     <Error Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == '' Or '@(_ProGpuWpfManagedTransportRuntimeAsset)' == ''"
