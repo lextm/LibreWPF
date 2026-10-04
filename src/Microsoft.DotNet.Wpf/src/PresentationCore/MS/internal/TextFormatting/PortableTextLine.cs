@@ -428,10 +428,22 @@ internal sealed partial class PortableTextLine : TextLine
             int start = builder.Length;
             if (run is TextEmbeddedObject embedded)
             {
-                if (service is not IPortableInlineTextFormatting || length != 1 || !embedded.HasFixedSize ||
-                    embedded.BreakBefore != LineBreakCondition.BreakDesired || embedded.BreakAfter != LineBreakCondition.BreakDesired ||
-                    pap.LineHeight > 0 || (p.TextDecorations?.Count ?? 0) != 0)
-                    throw Unsupported("variable-size, multi-symbol, decorated or fixed-line-height objects, custom object breaks or missing inline provider");
+                // A fixed one-symbol inline object can participate in the native paragraph at
+                // either a required or an ordinary possible line break. AvalonEdit's folded
+                // placeholder is the latter: it is a normal inline item, not a forced break.
+                // Keep rejecting restrained/indeterminate break semantics because the native
+                // contract has no representation for those policies.
+                if (service is not IPortableInlineTextFormatting) throw Unsupported("inline objects without an inline provider");
+                if (length != 1) throw Unsupported("multi-symbol inline objects");
+                if (!embedded.HasFixedSize) throw Unsupported("variable-size inline objects");
+                if ((embedded.BreakBefore != LineBreakCondition.BreakDesired && embedded.BreakBefore != LineBreakCondition.BreakPossible) ||
+                    (embedded.BreakAfter != LineBreakCondition.BreakDesired && embedded.BreakAfter != LineBreakCondition.BreakPossible))
+                    throw Unsupported("restrained or indeterminate inline object breaks");
+                if (pap.LineHeight > 0) throw Unsupported("inline objects in fixed-line-height paragraphs");
+                // Decorations are not rejected: they were already validated as ordinary
+                // underlines above and travel with the object's style request like any run.
+                // An Image inside a Hyperlink inherits the link's underline this way, and
+                // rejecting it failed the whole line (OpenDevelop's NuGet search button).
                 var metrics = embedded.Format(pap.Wrap && width > 0 ? Math.Max(0, width - indent) : double.PositiveInfinity);
                 if (metrics == null || !double.IsFinite(metrics.Width) || !double.IsFinite(metrics.Height) ||
                     !double.IsFinite(metrics.Baseline) || metrics.Width < 0 || metrics.Height < 0 ||
