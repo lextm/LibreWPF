@@ -229,7 +229,39 @@ finally {
     Remove-Item -Path $restoreRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "", [bool] $buildProjectReferences = $true) {
+# Arcade's -projects documents a ';' list but forwards it unquoted as /p:Projects=a;b, which MSBuild
+# reads as two properties and rejects with "MSB1006: Property is not valid". Hand it one traversal
+# project instead. Build.proj calls Restore and Build directly on a project NuGet cannot restore
+# itself, and the MSBuild task passes the invocation's global properties (Platform,
+# RuntimeIdentifier, IjwHostSourcePath, ...) through to the listed projects unchanged.
+function New-WpfTraversalProject([string[]] $projectPaths) {
+    $directory = Join-Path $repoRoot "artifacts/tmp/managed-runtime"
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $path = Join-Path $directory "Traversal-$([guid]::NewGuid().ToString('N')).proj"
+    $items = ($projectPaths | ForEach-Object {
+        "    <TraversalProject Include=`"$([System.Security.SecurityElement]::Escape($_))`" />"
+    }) -join [Environment]::NewLine
+    @"
+<Project>
+  <ItemGroup>
+$items
+  </ItemGroup>
+  <Target Name="Restore">
+    <MSBuild Projects="@(TraversalProject)" Targets="Restore" BuildInParallel="false" />
+  </Target>
+  <Target Name="Build">
+    <MSBuild Projects="@(TraversalProject)" Targets="Build" BuildInParallel="false" />
+  </Target>
+  <Target Name="Rebuild">
+    <MSBuild Projects="@(TraversalProject)" Targets="Rebuild" BuildInParallel="false" />
+  </Target>
+</Project>
+"@ | Set-Content -Path $path -Encoding utf8
+    return $path
+}
+
+function Invoke-WpfProjectBuild([string[]] $projectPaths, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "", [bool] $buildProjectReferences = $true) {
+    $projectPath = if ($projectPaths.Count -eq 1) { $projectPaths[0] } else { New-WpfTraversalProject $projectPaths }
     # Compiler/SDK changes require real compilation, not reuse of assemblies
     # previously produced with missing analyzers. Use Arcade's scoped Rebuild
     # action without deleting unrelated checkout outputs or running tests.
@@ -354,28 +386,24 @@ foreach ($entry in $runtimePlatforms.GetEnumerator()) {
 
     Write-Host "`n==> Building managed transport for $runtimeIdentifier ($platform)..."
 
-    # Build PresentationCore (also builds DirectWriteForwarder + transitive dependencies)
-    $presentationCoreProject = Join-Path $srcDir "PresentationCore/PresentationCore.csproj"
-    Invoke-WpfProjectBuild $presentationCoreProject $platform $runtimeIdentifier $ijwHost
-
-    # Every one of these reaches DirectWriteForwarder.vcxproj through PresentationCore, and that
-    # vcxproj needs IjwHostSourcePath (the SDK's _GetIjwHostPaths errors with NETSDK1114 when it is
-    # empty or missing). Passing it only to the PresentationCore build above left every later
-    # project in the loop to fail on a project it merely references.
-    foreach ($proj in $transportProjects) {
-        if ($proj -like "PresentationCore/*") { continue }
-        $projectPath = Join-Path $srcDir $proj
-        Write-Host "  Building $proj..."
-        Invoke-WpfProjectBuild $projectPath $platform $runtimeIdentifier $ijwHost
-    }
+    # PresentationCore (listed first; it also builds DirectWriteForwarder and the transitive
+    # dependencies) and the rest of the transport. Every one of these reaches
+    # DirectWriteForwarder.vcxproj through PresentationCore, and that vcxproj needs
+    # IjwHostSourcePath (the SDK's _GetIjwHostPaths errors with NETSDK1114 when it is empty or
+    # missing), so it goes to the whole group.
+    #
+    # Each group is one Arcade invocation (-projects takes a ';' list) rather than one per project:
+    # every invocation pays a fixed ~1.5 min (native tools bootstrap, toolset restore, VS MSBuild
+    # start, graph evaluation - measured on an up-to-date PresentationBuildTasks), and the old
+    # per-project loop made 25 of them. Within one /m:1 build the shared references
+    # (PresentationCore, DirectWriteForwarder) are built once and reused, never concurrently.
+    Write-Host "  Building $($transportProjects -join ', ')..."
+    Invoke-WpfProjectBuild @($transportProjects | ForEach-Object { Join-Path $srcDir $_ }) $platform $runtimeIdentifier $ijwHost
 
     # Build theme assemblies. Their dependencies are all built above, so skip project references
     # and keep each of these a managed-only compile.
-    foreach ($proj in $themeProjects) {
-        $projectPath = Join-Path $srcDir $proj
-        Write-Host "  Building $proj..."
-        Invoke-WpfProjectBuild $projectPath $platform $runtimeIdentifier $ijwHost $false
-    }
+    Write-Host "  Building $($themeProjects.Count) theme assemblies..."
+    Invoke-WpfProjectBuild @($themeProjects | ForEach-Object { Join-Path $srcDir $_ }) $platform $runtimeIdentifier $ijwHost $false
 
     # Stage the output: collect all built assemblies into the RID-specific payload directory.
     $runtimeOutput = Join-Path $outputDirectory "$runtimeIdentifier/net10.0"
