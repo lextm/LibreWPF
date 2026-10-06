@@ -392,13 +392,21 @@ foreach ($entry in $runtimePlatforms.GetEnumerator()) {
     # IjwHostSourcePath (the SDK's _GetIjwHostPaths errors with NETSDK1114 when it is empty or
     # missing), so it goes to the whole group.
     #
-    # Each group is one Arcade invocation (-projects takes a ';' list) rather than one per project:
-    # every invocation pays a fixed ~1.5 min (native tools bootstrap, toolset restore, VS MSBuild
-    # start, graph evaluation - measured on an up-to-date PresentationBuildTasks), and the old
-    # per-project loop made 25 of them. Within one /m:1 build the shared references
-    # (PresentationCore, DirectWriteForwarder) are built once and reused, never concurrently.
-    Write-Host "  Building $($transportProjects -join ', ')..."
-    Invoke-WpfProjectBuild @($transportProjects | ForEach-Object { Join-Path $srcDir $_ }) $platform $runtimeIdentifier $ijwHost
+    # Each group is one Arcade invocation rather than one per project: every invocation pays a
+    # fixed ~1.5 min (native tools bootstrap, toolset restore, VS MSBuild start, graph evaluation -
+    # measured on an up-to-date PresentationBuildTasks), and the old per-project loop made 25 of
+    # them. Within one /m:1 build the shared references (PresentationCore, DirectWriteForwarder)
+    # are built once and reused, never concurrently.
+    #
+    # PresentationUI is the one transport project that references System.Printing.vcxproj, whose
+    # PCH needs a large contiguous allocation. Built at the end of the merged group, after the
+    # MSBuild node had loaded every other transport graph, it failed on win-arm64 with C3859/C1076.
+    # It keeps a fresh process of its own, exactly as in the per-project loop where it succeeded.
+    $mergedTransport = @($transportProjects | Where-Object { $_ -notlike "PresentationUI/*" })
+    Write-Host "  Building $($mergedTransport -join ', ')..."
+    Invoke-WpfProjectBuild @($mergedTransport | ForEach-Object { Join-Path $srcDir $_ }) $platform $runtimeIdentifier $ijwHost
+    Write-Host "  Building PresentationUI/PresentationUI.csproj (with System.Printing)..."
+    Invoke-WpfProjectBuild @(Join-Path $srcDir "PresentationUI/PresentationUI.csproj") $platform $runtimeIdentifier $ijwHost
 
     # Build theme assemblies. Their dependencies are all built above, so skip project references
     # and keep each of these a managed-only compile.
