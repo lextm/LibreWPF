@@ -4487,11 +4487,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (s_traceRenderRequests && Interlocked.Increment(ref s_pumpTraceCount) % 60 == 0)
+        {
+            Console.WriteLine("ProGPU WPF pump reasons: coalescing=" + EnableFrameCoalescing +
+                " draw=" + (Draw != null) + " wpfDraw=" + (WpfDraw != null) + " render=" + (Render != null) +
+                " presented=" + HasPresentedFrame + " pending=" + WpfRenderScheduler.HasPendingRenderRequest +
+                " skipped=" + SkippedFrameCount + " host=" + GetHashCode().ToString("x") +
+                " pumped=" + NativeRenderPumpCount + " pumpSkipped=" + SkippedNativeRenderPumpCount +
+                " external=" + _usesExternalNativeLoopPump);
+        }
         return !EnableFrameCoalescing ||
             HasExplicitFrameCallbacks ||
             !HasPresentedFrame ||
             WpfRenderScheduler.HasPendingRenderRequest;
     }
+
+    private static int s_pumpTraceCount;
 
     internal void RecordPresentedFrame(ProGpuWpfFrameState frameState)
     {
@@ -5565,8 +5576,17 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         scheduler.RenderRequested -= OnRenderSchedulerRenderRequested;
     }
 
+    private static readonly bool s_traceRenderRequests = IsTraceEnabled("PROGPU_WPF_TRACE_RENDER_REQUESTS");
+    private static int s_renderRequestCount;
+
     private void OnRenderSchedulerRenderRequested(object? sender, EventArgs e)
     {
+        if (s_traceRenderRequests && Interlocked.Increment(ref s_renderRequestCount) % 30 == 0)
+        {
+            // Who keeps the render loop busy: one sampled requester stack per 30 requests.
+            Console.WriteLine("ProGPU WPF render request #" + s_renderRequestCount + ":\n" + Environment.StackTrace);
+        }
+
         if (_isDisposed)
         {
             return;
