@@ -117,6 +117,54 @@
       <_ProGpuWpfRidSpecificRuntimeAsset
         Include="@(RuntimeTargetsCopyLocalItems)"
         Condition="'%(RuntimeTargetsCopyLocalItems.AssetType)' == 'runtime'" />
+
+      <!--
+        Dropping the lib/<tfm> asset is only right when its RID-specific variants cover every OS the
+        RID-less output runs on. System.Windows.Extensions ships runtimes/win only, so on macOS and
+        Linux nothing was left: deps.json listed just the win runtimeTarget and the host refused the
+        app-base copy ("Could not load file or assembly 'System.Windows.Extensions'" from the first
+        BAML load). Register such a Windows-only asset's lib/<tfm> build as the `unix` runtimeTarget
+        instead (runtimes/unix/lib/<tfm>/), which osx-* and linux-* RIDs fall back to. Windows output
+        is unchanged: the flattened copy is still dropped and win RIDs still pick runtimes/win.
+      -->
+      <!-- Every lib/ runtime asset, captured before the drop below changes RuntimeCopyLocalItems. -->
+      <_ProGpuWpfLibRuntimeAsset Include="@(RuntimeCopyLocalItems)" />
+      <_ProGpuWpfNonWindowsRidSpecificRuntimeAsset
+        Include="@(_ProGpuWpfRidSpecificRuntimeAsset)"
+        Condition="!$([System.String]::Copy('%(_ProGpuWpfRidSpecificRuntimeAsset.RuntimeIdentifier)').StartsWith('win'))" />
+      <!-- Variants are matched within the same package: LibreWPF.Transport ships win-* copies of
+           Accessibility.dll, which must not make LibreWinForms' own Accessibility.dll "Windows-only". -->
+      <_ProGpuWpfNotRidSpecificRuntimeAsset Include="@(RuntimeCopyLocalItems)" />
+      <_ProGpuWpfNotRidSpecificRuntimeAsset Remove="@(_ProGpuWpfRidSpecificRuntimeAsset)"
+                                            MatchOnMetadata="NuGetPackageId;Filename"
+                                            MatchOnMetadataOptions="CaseInsensitive" />
+      <_ProGpuWpfWindowsOnlyRuntimeAsset Include="@(RuntimeCopyLocalItems)" />
+      <_ProGpuWpfWindowsOnlyRuntimeAsset Remove="@(_ProGpuWpfNotRidSpecificRuntimeAsset)" />
+      <_ProGpuWpfWindowsOnlyRuntimeAsset Remove="@(_ProGpuWpfNonWindowsRidSpecificRuntimeAsset)"
+                                         MatchOnMetadata="NuGetPackageId;Filename"
+                                         MatchOnMetadataOptions="CaseInsensitive" />
+      <!-- LibreWPF.Transport's own assemblies have their own deployment
+           (_ProGpuWpfSdkCopyManagedTransportRuntimeAssets) and load on macOS already. -->
+      <_ProGpuWpfWindowsOnlyRuntimeAsset Remove="@(_ProGpuWpfWindowsOnlyRuntimeAsset)"
+                                         Condition="'%(_ProGpuWpfWindowsOnlyRuntimeAsset.NuGetPackageId)' == 'LibreWPF.Transport'" />
+      <!--
+        The host treats a package's runtimeTargets as its WHOLE asset set once one of them matches
+        the RID ("Matched RID unix for runtime assets" in a COREHOST_TRACE): every lib/ asset of
+        that package is then ignored. So a package that gets any unix runtimeTarget gets all of its
+        lib/ assets as unix runtimeTargets; registering only the Windows-only ones dropped
+        LibreWinForms.Platform from LibreWinForms.System.Windows.Forms and the app failed to start.
+      -->
+      <_ProGpuWpfOutsideUnixPackage Include="@(_ProGpuWpfLibRuntimeAsset)" />
+      <_ProGpuWpfOutsideUnixPackage Remove="@(_ProGpuWpfWindowsOnlyRuntimeAsset)" MatchOnMetadata="NuGetPackageId" />
+      <_ProGpuWpfUnixPackageAsset Include="@(_ProGpuWpfLibRuntimeAsset)" />
+      <_ProGpuWpfUnixPackageAsset Remove="@(_ProGpuWpfOutsideUnixPackage)" />
+      <RuntimeTargetsCopyLocalItems Include="@(_ProGpuWpfUnixPackageAsset)"
+                                    Condition="$([System.String]::Copy('%(_ProGpuWpfUnixPackageAsset.PathInPackage)').StartsWith('lib/'))">
+        <RuntimeIdentifier>unix</RuntimeIdentifier>
+        <PathInPackage>runtimes/unix/%(_ProGpuWpfUnixPackageAsset.PathInPackage)</PathInPackage>
+        <DestinationSubDirectory>runtimes/unix/$([System.String]::Copy('%(_ProGpuWpfUnixPackageAsset.PathInPackage)').Substring(0, $([MSBuild]::Add($([System.String]::Copy('%(_ProGpuWpfUnixPackageAsset.PathInPackage)').LastIndexOf('/')), 1))))</DestinationSubDirectory>
+      </RuntimeTargetsCopyLocalItems>
+
       <RuntimeCopyLocalItems Remove="@(_ProGpuWpfRidSpecificRuntimeAsset)"
                              MatchOnMetadata="Filename"
                              MatchOnMetadataOptions="CaseInsensitive" />
@@ -124,6 +172,25 @@
                                MatchOnMetadata="Filename"
                                MatchOnMetadataOptions="CaseInsensitive" />
     </ItemGroup>
+  </Target>
+
+  <!--
+    Places the unix runtimeTargets registered above. They cannot ride on the normal copy-local
+    copy: _CopyFilesMarkedCopyLocal is a dependency of CopyFilesToOutputDirectory and has already
+    run by the time a BeforeTargets="CopyFilesToOutputDirectory" target adds to its inputs.
+  -->
+  <Target Name="_ProGpuWpfSdkCopyUnixRuntimeTargets"
+          AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeIdentifier)' == ''">
+    <ItemGroup>
+      <_ProGpuWpfUnixRuntimeTarget Include="@(RuntimeTargetsCopyLocalItems)" Condition="'%(RuntimeTargetsCopyLocalItems.RuntimeIdentifier)' == 'unix'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ProGpuWpfUnixRuntimeTarget)"
+          DestinationFiles="@(_ProGpuWpfUnixRuntimeTarget->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_ProGpuWpfUnixRuntimeTarget)' != ''">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
   </Target>
 
   <ItemGroup Condition="'$(_ProGpuWpfSdkBootstrap)' == 'true'">

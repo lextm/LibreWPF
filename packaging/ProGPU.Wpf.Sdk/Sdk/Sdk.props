@@ -15,7 +15,16 @@
     <MSBuildWarningsAsMessages Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">$(MSBuildWarningsAsMessages);NETSDK1106</MSBuildWarningsAsMessages>
     <ProGpuWpfUsePortablePlatform Condition="'$(ProGpuWpfUsePortablePlatform)' == ''">true</ProGpuWpfUsePortablePlatform>
     <ProGpuWpfEnablePortableBootstrap Condition="'$(ProGpuWpfEnablePortableBootstrap)' == ''">true</ProGpuWpfEnablePortableBootstrap>
-    <ProGpuWpfUseCurrentRuntimeIdentifier Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == ''">true</ProGpuWpfUseCurrentRuntimeIdentifier>
+    <!--
+      RID-less by default. With this true, a plain `dotnet build` silently became a build for the
+      build machine's RID (osx-arm64, win-arm64, ...): architecture-stamped assemblies, and a
+      project.assets.json target that RID-less restores (dist and CI pass false) do not have, so
+      any tool resolving references without the flag failed with NETSDK1047. A RID-less build now
+      runs on every OS: Windows-only package assets are also registered as `unix` runtimeTargets
+      (_ProGpuWpfSdkDropRidSpecificRuntimeAssetsInRidlessBuild). Set it to true, or set
+      RuntimeIdentifier, for a build that should be RID-specific.
+    -->
+    <ProGpuWpfUseCurrentRuntimeIdentifier Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == ''">false</ProGpuWpfUseCurrentRuntimeIdentifier>
     <ProGpuWpfPlatform Condition="'$(ProGpuWpfPlatform)' == ''">SilkNet</ProGpuWpfPlatform>
     <ProGpuWpfRenderingBackend Condition="'$(ProGpuWpfRenderingBackend)' == ''">ProGPU</ProGpuWpfRenderingBackend>
     <ProGpuWpfRendererMode Condition="'$(ProGpuWpfRendererMode)' == ''">ManagedPortable</ProGpuWpfRendererMode>
