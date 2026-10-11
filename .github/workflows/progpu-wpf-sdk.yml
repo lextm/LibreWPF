@@ -159,6 +159,9 @@ jobs:
       - name: Validate source event-time input modifiers
         run: bash ./eng/progpu-wpf-input-modifiers-source.sh
 
+      - name: Validate original Hong Kong composite map precedence
+        run: bash ./eng/progpu-wpf-cjk-fallback-source.sh
+
       - name: Validate original ShaderEffect source export
         run: bash ./eng/progpu-wpf-shader-effect-source.sh
 
@@ -300,6 +303,9 @@ jobs:
         env:
           PROGPU_WPF_TOOLKIT_FAILURE_SCREENSHOT: 1
         run: ./eng/progpu-wpf-sdk-ci.sh
+
+      - name: Validate macOS CJK physical font fallback
+        run: bash ./eng/progpu-wpf-cjk-fallback-source.sh --macos-fonts
 
       - name: Preserve failed Showcase app closure
         if: ${{ failure() && steps.sdk-gate.outcome == 'failure' }}
