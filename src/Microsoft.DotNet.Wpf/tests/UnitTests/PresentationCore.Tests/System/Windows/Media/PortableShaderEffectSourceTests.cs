@@ -1,13 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.IO;
+using System.Linq;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Tests;
 
+[Collection("Sequential")]
 public sealed class PortableShaderEffectSourceTests
 {
     [Fact]
@@ -127,6 +128,11 @@ public sealed class PortableShaderEffectSourceTests
     [InlineData(true)]
     public void PaddingPreservesOriginalDrawingImageOrCacheSamplerAndFourDoubleBits(bool cacheSampler)
     {
+        // The source-only process has no host geometry service. Check the exact
+        // original rectangular operand at that boundary; this is not a native
+        // geometry or pixel oracle, and an installed real provider stays intact.
+        using var geometryRegistration = PortableWpfServiceRegistry.TryGetGeometryOperations(out _)
+            ? null : PortableWpfServiceRegistry.RegisterGeometryOperations(new PaddingRectangleBounds());
         var rectangle = new Rect(10, 20, 8, 6);
         var drawing = new GeometryDrawing(Brushes.Red, null, new RectangleGeometry(rectangle));
         var group = new DrawingGroup();
@@ -159,7 +165,7 @@ public sealed class PortableShaderEffectSourceTests
         else Assert.Same(image, sampler.ImageSource);
         Assert.Same(group, image.Drawing);
         Assert.Same(drawing, Assert.Single(group.Children));
-        Assert.Equal(rectangle, image.Bounds);
+        Assert.Equal(rectangle, image.Drawing.Bounds);
         Assert.True(((IPortableVisualBoundsSource)target).TryGetPortableVisualBounds(out var bounds));
         Assert.Equal(new PortableRect(10, 20, 8, 6), bounds.DescendantBounds);
 
@@ -173,7 +179,7 @@ public sealed class PortableShaderEffectSourceTests
         AssertPaddingBits(padding, captured);
         AssertPaddingBits([negativeZero, negativeZero, negativeZero, negativeZero], signedZero);
         Assert.Same(brush, Assert.Single(reset.Samplers).Brush);
-        Assert.Equal(rectangle, image.Bounds);
+        Assert.Equal(rectangle, image.Drawing.Bounds);
         Assert.Same(effect.OriginalShader, reset.PixelShader!.Source);
     }
 
@@ -405,6 +411,40 @@ public sealed class PortableShaderEffectSourceTests
         }
     }
 
+    private sealed class PaddingRectangleBounds : IPortableGeometryOperations
+    {
+        public PortableRect GetBounds(PortableGeometryOperand geometry, PortableMatrix3x2 transform, bool skipHollows)
+        {
+            Assert.Equal(PortableGeometryOperandKind.Path, geometry.Kind);
+            Assert.Empty(geometry.Children);
+            Assert.Equal(PortableMatrix3x2.Identity, geometry.Transform);
+            Assert.Equal(PortableMatrix3x2.Identity, transform);
+            var path = Assert.IsType<PortableGeometryPath>(geometry.Path);
+            Assert.Equal(PortableGeometryPathKind.Path, path.Kind);
+            Assert.Equal(PortableMatrix3x2.Identity, path.Transform);
+            Assert.Equal(PortableRect.Empty, path.Bounds);
+            Assert.Equal(PortableFillRule.EvenOdd, path.FillRule);
+            Assert.Null(path.PathA);
+            Assert.Null(path.PathB);
+            Assert.Equal(0, path.CombineOperation);
+            var figure = Assert.Single(path.Figures);
+            Assert.Equal(new PortablePoint(10, 20), figure.StartPoint);
+            Assert.True(figure.IsClosed);
+            Assert.True(figure.IsFilled);
+            Assert.Equal(new[]
+            {
+                PortablePathSegment.Line(new PortablePoint(18, 20), false, true),
+                PortablePathSegment.Line(new PortablePoint(18, 26), false, true),
+                PortablePathSegment.Line(new PortablePoint(10, 26), false, true)
+            }, figure.Segments);
+            return new PortableRect(10, 20, 8, 6);
+        }
+
+        public PortableGeometryPath Combine(PortableGeometryOperand first, PortableGeometryOperand second,
+            PortableGeometryCombineMode mode, PortableMatrix3x2 transform, double tolerance, bool relativeTolerance)
+            => throw new NotSupportedException("The padding fixture admits only its original rectangle bounds.");
+    }
+
     private static PixelShader CreateShader()
     {
         var shader = new PixelShader();
@@ -415,19 +455,19 @@ public sealed class PortableShaderEffectSourceTests
 
     private sealed class SourceEffect : ShaderEffect
     {
-        public static readonly DependencyProperty InputProperty = RegisterPixelShaderSamplerProperty(
+        private static readonly DependencyProperty s_inputProperty = RegisterPixelShaderSamplerProperty(
             nameof(Input), typeof(SourceEffect), 3, SamplingMode.NearestNeighbor);
-        public static readonly DependencyProperty AmountProperty = DependencyProperty.Register(
+        private static readonly DependencyProperty s_amountProperty = DependencyProperty.Register(
             nameof(Amount), typeof(double), typeof(SourceEffect), new PropertyMetadata(0.0, PixelShaderConstantCallback(2)));
 
         internal SourceEffect()
         {
             PixelShader = CreateShader();
-            UpdateShaderValue(InputProperty);
-            UpdateShaderValue(AmountProperty);
+            UpdateShaderValue(s_inputProperty);
+            UpdateShaderValue(s_amountProperty);
         }
-        public Brush Input { get => (Brush)GetValue(InputProperty); set => SetValue(InputProperty, value); }
-        public double Amount { get => (double)GetValue(AmountProperty); set => SetValue(AmountProperty, value); }
+        public Brush Input { get => (Brush)GetValue(s_inputProperty); set => SetValue(s_inputProperty, value); }
+        public double Amount { get => (double)GetValue(s_amountProperty); set => SetValue(s_amountProperty, value); }
         internal PixelShader OriginalShader => PixelShader;
         internal void SetTopPadding(double value) => PaddingTop = value;
         internal void SetPadding(int axis, double value)

@@ -253,7 +253,7 @@ public sealed class PortableDisplayTextSourceTests
         internal Source() => PixelsPerDip = 1.5;
         internal string Text { get; init; } = "a";
         internal Properties Properties { get; init; } = new(12);
-        internal bool ForbidReads;
+        internal bool ForbidReads { get; set; }
         public override TextRun GetTextRun(int index) => ForbidReads ? throw new InvalidOperationException("Continuation re-fetched source") :
             index >= Text.Length ? new TextEndOfParagraph(1) : new TextCharacters(Text, index, Text.Length - index, Properties);
         public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int limit) =>
@@ -287,7 +287,7 @@ public sealed class PortableDisplayTextSourceTests
 
     private sealed class HintedOnlyProvider : IPortableTextFormatting, IPortableHintedTextFormatting
     {
-        internal int Calls;
+        internal int Calls { get; private set; }
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request) { Calls++; throw new InvalidOperationException("Ideal fallback"); }
         public IPortableHintedTextParagraph FormatHinted(in PortableTextParagraphRequest request,
             ReadOnlySpan<PortableTextStyleMetrics> metrics, ReadOnlySpan<PortableTextHintingStyle> devices,
@@ -297,18 +297,29 @@ public sealed class PortableDisplayTextSourceTests
 
     private sealed class DisplayProvider : IPortableDisplayTextFormatting
     {
-        internal int IdealCalls, FormatCalls, RetainCalls, ReflowCalls, ReflowStart, BindCalls, InkReads;
-        internal double LastHit, ReflowWidth;
-        internal bool BindingRetainMismatch, BindingFrameMismatch, CopiedAdvanceMismatch;
-        internal string? InitialMutation, RetainMutation, ReflowMutation;
-        internal Exception? FormatFailure;
-        internal string Text = "";
-        internal PortableDisplayTextOptions Options;
-        internal PortableDisplayTextStyle[] Styles = [];
-        internal PortableTextParagraphRequest Request;
-        internal readonly List<DisplayParagraph> Paragraphs = new();
-        internal readonly List<DisplayBinding> Bindings = new();
-        internal readonly ushort Glyph = new GlyphTypeface(new Uri(FontPath)).CharacterToGlyphMap['a'];
+        internal int IdealCalls { get; set; }
+        internal int FormatCalls { get; set; }
+        internal int RetainCalls { get; set; }
+        internal int ReflowCalls { get; set; }
+        internal int ReflowStart { get; set; }
+        internal int BindCalls { get; set; }
+        internal int InkReads { get; set; }
+        internal double LastHit { get; set; }
+        internal double ReflowWidth { get; set; }
+        internal bool BindingRetainMismatch { get; set; }
+        internal bool BindingFrameMismatch { get; set; }
+        internal bool CopiedAdvanceMismatch { get; set; }
+        internal string? InitialMutation { get; set; }
+        internal string? RetainMutation { get; set; }
+        internal string? ReflowMutation { get; set; }
+        internal Exception? FormatFailure { get; set; }
+        internal string Text { get; set; } = "";
+        internal PortableDisplayTextOptions Options { get; set; }
+        internal PortableDisplayTextStyle[] Styles { get; set; } = [];
+        internal PortableTextParagraphRequest Request { get; set; }
+        internal List<DisplayParagraph> Paragraphs { get; } = new();
+        internal List<DisplayBinding> Bindings { get; } = new();
+        internal ushort Glyph { get; } = new GlyphTypeface(new Uri(FontPath)).CharacterToGlyphMap['a'];
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         { IdealCalls++; throw new InvalidOperationException("Display called Ideal"); }
         public IPortableDisplayTextParagraph FormatDisplay(in PortableTextParagraphRequest request,
@@ -322,7 +333,7 @@ public sealed class PortableDisplayTextSourceTests
 
     private sealed class DisplayParagraph : IPortableDisplayTextParagraph
     {
-        internal readonly DisplayProvider Provider;
+        internal DisplayProvider Provider { get; }
         private readonly int _start;
         private readonly string? _mutation;
         private readonly PortableTextGlyph[] _glyphs;
@@ -350,7 +361,7 @@ public sealed class PortableDisplayTextSourceTests
         public ReadOnlyMemory<PortableDisplayTextGlyphMetrics> DisplayGlyphMetrics { get; }
         private readonly ReadOnlyMemory<PortableDisplayTextLineMetrics> _displayLines;
         public ReadOnlyMemory<PortableDisplayTextLineMetrics> DisplayLineMetrics
-        { get => _mutation == "coverage" ? [] : _displayLines; private init => _displayLines = value; }
+        { get => _mutation == "coverage" ? ReadOnlyMemory<PortableDisplayTextLineMetrics>.Empty : _displayLines; private init => _displayLines = value; }
         public PortableDisplayTextIntrinsicWidths? DisplayIntrinsicWidths => new(Advance, Advance * Provider.Text.Length);
         public ReadOnlyMemory<PortableTextGlyph> Glyphs => _glyphs;
         public ReadOnlyMemory<PortableTextLineInfo> Lines => _lines;
