@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Execute the canonical workflow staging step with a recording helper, offline."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -99,6 +100,100 @@ class ReleaseNativeStagingTests(unittest.TestCase):
                                             env=environment, capture_output=True, text=True)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertFalse((root / "external/ProGPU/artifacts/progpu-native/runtime").exists())
+
+
+class ExactProducerRunSelectionTests(unittest.TestCase):
+    """Exercise the real selector offline; never provide or fabricate runtimes."""
+
+    @staticmethod
+    def run_record(number, status, conclusion=None, sha="a" * 40):
+        return {"id": number, "head_sha": sha, "status": status, "conclusion": conclusion,
+                "created_at": f"2026-10-11T00:00:{number:02d}Z", "html_url": f"https://example.invalid/{number}"}
+
+    def select_run(self, responses):
+        with tempfile.TemporaryDirectory(prefix="wpf-exact-build-selection-") as temporary:
+            root = Path(temporary)
+            (root / "runs.json").write_text(json.dumps(responses))
+            gh = root / "gh"
+            gh.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+root = pathlib.Path(os.environ["SELECTION_FIXTURE"])
+endpoint = sys.argv[2]
+with (root / "requests").open("a") as log:
+    log.write(endpoint + "\\n")
+if "/workflows/build.yml/runs?" in endpoint:
+    counter = root / "query-count"
+    index = int(counter.read_text()) if counter.exists() else 0
+    responses = json.loads((root / "runs.json").read_text())
+    counter.write_text(str(index + 1))
+    if index >= len(responses):
+        sys.exit(93)
+    print(json.dumps({"workflow_runs": responses[index]}))
+elif "/artifacts?" in endpoint:
+    # Stop at the real missing-artifact guard after observing the selected run.
+    # This control cannot stage a native library or qualify any package.
+    pass
+else:
+    sys.exit(94)
+''')
+            gh.chmod(0o755)
+            sleeper = root / "sleep"
+            sleeper.write_text("#!/bin/sh\nexit 0\n")
+            sleeper.chmod(0o755)
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ["PATH"],
+                               SELECTION_FIXTURE=str(root), PROGPU_CI_POLL_SECONDS="1", PROGPU_CI_TIMEOUT_SECONDS="5")
+            result = subprocess.run(["bash", str(ROOT / "eng/progpu-stage-ci-native-runtimes.sh"),
+                                     "a" * 40, str(root / "runtimes")], env=environment,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0, "No control contains a real native artifact")
+            self.assertFalse((root / "runtimes").exists())
+            requests = (root / "requests").read_text().splitlines()
+            return requests, result.stdout + result.stderr
+
+    def test_pending_duplicate_reuses_complete_success_for_only_the_exact_commit(self):
+        for state in ("queued", "in_progress"):
+            with self.subTest(state=state):
+                requests, output = self.select_run([[self.run_record(1, "completed", "success"),
+                    self.run_record(2, state), self.run_record(3, "completed", "success", "b" * 40)]])
+                self.assertIn("/runs/1/artifacts?", requests[-1])
+                self.assertIn("has no live progpu-native-package artifact", output)
+
+    def test_newest_complete_success_wins(self):
+        requests, _ = self.select_run([[self.run_record(1, "completed", "success"),
+                                       self.run_record(2, "completed", "success")]])
+        self.assertIn("/runs/2/artifacts?", requests[-1])
+
+    def test_newest_completed_failure_cannot_fall_back_to_older_success(self):
+        for conclusion in ("failure", "cancelled", "timed_out", "skipped", None):
+            with self.subTest(conclusion=conclusion):
+                requests, output = self.select_run([[self.run_record(1, "completed", "success"),
+                                                    self.run_record(2, "completed", conclusion)]])
+                self.assertEqual(len(requests), 1)
+                self.assertIn("completed with", output)
+
+    def test_other_commit_or_partial_success_cannot_supply_a_producer(self):
+        pending = [self.run_record(1, "in_progress", "success"),
+                   self.run_record(2, "completed", "success", "b" * 40)]
+        requests, output = self.select_run([pending, [self.run_record(1, "completed", "failure")]])
+        self.assertEqual(len(requests), 2)
+        self.assertTrue(all("/workflows/build.yml/runs?" in request for request in requests))
+        self.assertIn("Waiting for exact ProGPU Build", output)
+
+    def test_no_qualified_prior_build_waits_for_whole_success(self):
+        prior = self.run_record(1, "completed", "failure")
+        requests, output = self.select_run([[prior, self.run_record(2, "in_progress")],
+                                            [prior, self.run_record(2, "completed", "success")]])
+        self.assertEqual(len(requests), 3)
+        self.assertIn("/runs/2/artifacts?", requests[-1])
+        self.assertIn("Waiting for exact ProGPU Build", output)
+
+    def test_pending_retry_cannot_reuse_success_before_a_newer_failure(self):
+        prior = [self.run_record(1, "completed", "success"), self.run_record(2, "completed", "failure")]
+        requests, output = self.select_run([prior + [self.run_record(3, "in_progress")],
+                                            prior + [self.run_record(3, "completed", "failure")]])
+        self.assertEqual(len(requests), 2)
+        self.assertTrue(all("/workflows/build.yml/runs?" in request for request in requests))
+        self.assertIn("Waiting for exact ProGPU Build", output)
 
 
 if __name__ == "__main__":

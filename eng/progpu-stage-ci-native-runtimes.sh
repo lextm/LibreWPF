@@ -49,42 +49,28 @@ while true; do
     continue
   fi
   query_failures=0
-  run_id="$(
-    jq -r \
+  # A push to the default branch can start a duplicate Build for an already
+  # qualified immutable commit. Reuse a whole completed successful Build while
+  # that duplicate is pending; never choose partial jobs or another commit.
+  # A newer completed failure remains authoritative and must fail below.
+  selected_run="$(
+    jq -c \
       --arg sha "${progpu_commit}" \
       '[.workflow_runs[] | select(.head_sha == $sha)]
-       | sort_by(.created_at)
-       | last
-       | .id // empty' \
+       | sort_by(.created_at) as $runs
+       | $runs[-1] as $latest
+       | ([$runs[] | select(.status == "completed")] | last) as $completed
+       | if $latest.status == "completed" then $latest
+         elif $completed.conclusion == "success" then $completed
+         else $latest
+         end
+       | . // {}' \
       <<<"${runs}"
   )"
-  status="$(
-    jq -r \
-      --arg sha "${progpu_commit}" \
-      '[.workflow_runs[] | select(.head_sha == $sha)]
-       | sort_by(.created_at)
-       | last
-       | .status // empty' \
-      <<<"${runs}"
-  )"
-  conclusion="$(
-    jq -r \
-      --arg sha "${progpu_commit}" \
-      '[.workflow_runs[] | select(.head_sha == $sha)]
-       | sort_by(.created_at)
-       | last
-       | .conclusion // empty' \
-      <<<"${runs}"
-  )"
-  run_url="$(
-    jq -r \
-      --arg sha "${progpu_commit}" \
-      '[.workflow_runs[] | select(.head_sha == $sha)]
-       | sort_by(.created_at)
-       | last
-       | .html_url // empty' \
-      <<<"${runs}"
-  )"
+  run_id="$(jq -r '.id // empty' <<<"${selected_run}")"
+  status="$(jq -r '.status // empty' <<<"${selected_run}")"
+  conclusion="$(jq -r '.conclusion // empty' <<<"${selected_run}")"
+  run_url="$(jq -r '.html_url // empty' <<<"${selected_run}")"
 
   if [[ "${status}" == "completed" ]]; then
     if [[ "${conclusion}" != "success" ]]; then
