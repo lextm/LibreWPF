@@ -73,11 +73,13 @@ class BootstrapTests(unittest.TestCase):
   {web_targets}
   <Import Project="{escape(str(SDK / 'Sdk/Sdk.targets'))}" />
 </Project>''')
-                    output = run(root, "msbuild", "Policy.csproj", "-nologo",
-                                 "-getItem:Compile", "-getProperty:DefineConstants")
-                    # Combined SDK imports may print duplicate-import warnings
-                    # before the structured evaluation result.
-                    result = json.loads(output[output.index("{"):])
+                    result_file = root / f"{name}-evaluation.json"
+                    run(root, "msbuild", "Policy.csproj", "-nologo",
+                        "-getItem:Compile", "-getProperty:DefineConstants",
+                        f"-getResultOutputFile:{result_file}")
+                    # Import diagnostics may appear before or after console JSON.
+                    # MSBuild owns a separate complete result for each original case.
+                    result = json.loads(result_file.read_text(encoding="utf-8-sig"))
                     sources = [item["Identity"] for item in result["Items"]["Compile"]]
                     self.assertEqual(included, any(path.endswith("ProGPU.Wpf.Sdk.PortableBootstrap.cs") for path in sources))
                     constants = result["Properties"]["DefineConstants"].split(";")
