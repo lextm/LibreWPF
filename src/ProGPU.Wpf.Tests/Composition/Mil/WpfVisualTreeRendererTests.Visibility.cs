@@ -31,7 +31,8 @@ public sealed partial class WpfVisualTreeRendererTests
         root.Children.Add(maskedChild);
         var sceneRoot = new ProGPU.Scene.ContainerVisual();
         var retainedRoot = new ProGPU.Scene.ContainerVisual();
-        var frame = new ProGpuWpfDrawingFrame(sceneRoot, retainedRoot, new ProGPU.Scene.DrawingVisual(), 80, 60);
+        var frame = new ProGpuWpfDrawingFrame(sceneRoot, retainedRoot, new ProGPU.Scene.DrawingVisual(), 80, 60,
+            hitTestOwnerMap: new WpfGpuHitTestOwnerMap());
         var renderer = new WpfVisualTreeRenderer();
         ProGpuRetainedDrawingVisual owner;
         using (var sink = new ProGpuRetainedCompositionCommandSink(frame, null, null))
@@ -61,8 +62,13 @@ public sealed partial class WpfVisualTreeRendererTests
         Assert.True(owner.IsVisible);
         Assert.NotNull(Assert.Single(owner.Children).OpacityMask);
         capture.Clear();
-        // Source hit-only capture still must not silently admit a visible mask.
-        Assert.Throws<System.NotSupportedException>(() => capture.AddSourceVisual(owner, Matrix4x4.Identity));
+        // Actual source visuals now explicitly preserve geometry through masks.
+        // The mask neither contributes a hit rectangle nor clips source input.
+        capture.AddSourceVisual(owner, Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hit.Kind);
+        Assert.Equal(new Vector2(1, 2), hit.BoundsMin);
+        Assert.Equal(new Vector2(31, 42), hit.BoundsMax);
     }
 
     [Theory]

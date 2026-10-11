@@ -134,7 +134,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var brush = new ShaderCacheBrush(new(target, cache));
         var effect = VisualSamplerEffect(brush);
         var receiver = new CacheRasterVisual(new FakeRenderData(CreateRectangleRecord(1, 0),
-            [new FakeBrush(new(255, 255, 255, 255))]),
+            [new FakeBrush(new PortableColor(255, 255, 255, 255))]),
             new PortableVisualState { HasEffect = true, Effect = effect }, new(1, 2, 30, 20));
         using var before = compiler.BuildBatch(receiver, 64, 64);
         var policies = before.BitmapCacheRasterPolicies.ToArray();
@@ -164,7 +164,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     public void CacheShaderSourceRetainsSixRootPropertiesAndDescendantScrollClip()
     {
         var child = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0),
-            [new FakeBrush(new(255, 255, 0, 0))]), new PortableVisualState
+            [new FakeBrush(new PortableColor(255, 255, 0, 0))]), new PortableVisualState
             {
                 HasScrollableAreaClip = true, ScrollableAreaClip = new(3, 4, 8, 6)
             });
@@ -173,7 +173,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             HasOffset = true, Offset = new(100, 200),
             HasTransform = true, Transform = new FakeTransform(new(2, 0, 0, 3, 7, 9)),
             HasOpacity = true, Opacity = 0,
-            HasOpacityMask = true, OpacityMask = new FakeBrush(new(0, 0, 0, 0)),
+            HasOpacityMask = true, OpacityMask = new FakeBrush(new PortableColor(0, 0, 0, 0)),
             HasEffect = true, Effect = new FakeEffect(PortableEffect.Blur(2)),
             HasClip = true, Clip = new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
                 new(90, 90, 1, 1), 0, 0, PortableMatrix3x2.Identity))
@@ -257,7 +257,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.False(session.Update(receiver, 64, 64).RecreatedChannel);
 
         target.Empty = false;
-        target.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 255, 0, 0))]);
+        target.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new PortableColor(255, 255, 0, 0))]);
         Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
         var positive = session.CompileFrame(11952, 2, 0, 2);
         byte[] positiveBytes = positive.Scene.Stream.ToArray();

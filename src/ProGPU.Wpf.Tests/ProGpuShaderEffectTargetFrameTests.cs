@@ -12,12 +12,15 @@ using Xunit;
 namespace ProGPU.Wpf.Tests;
 
 [Collection(PortableRenderDataSinkProviderCollection.Name)]
-public sealed class ProGpuShaderEffectTargetFrameTests
+public sealed partial class ProGpuShaderEffectTargetFrameTests
 {
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
+
     [Fact]
     public void HostSuppliesActualTargetGeometryBeforeSourceReplaySelection()
     {
-        string host = Regex.Replace(File.ReadAllText(FindHostSource()), @"\s+", string.Empty);
+        string host = Whitespace().Replace(File.ReadAllText(FindHostSource()), string.Empty);
         const string capture = "varshaderTargetFrame=newWpfShaderEffectTargetFrame(logicalWidth,logicalHeight," +
             "pixelWidth,pixelHeight,newProGpuRenderTargetViewport(viewportX,viewportY,viewportWidth,viewportHeight));";
         int captureAt = host.IndexOf(capture, StringComparison.Ordinal);

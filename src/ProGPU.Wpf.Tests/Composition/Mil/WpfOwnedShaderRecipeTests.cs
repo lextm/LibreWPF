@@ -1,9 +1,11 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.ProGPU;
+using System.Windows.Media.ProGPU.Composition;
 using System.Windows.Media.ProGPU.Composition.Mil;
 using ProGPU.Backend;
 using ProGPU.Scene;
@@ -89,7 +91,9 @@ public sealed class WpfOwnedShaderRecipeTests
         var reads = new SourceReads();
         var image = new MetricsBitmap(reads, texture);
         // Actual 4x2 texels at 192 DPI occupy 2x1 DIPs. The right 1x1 DIP
-        // selects only green; assuming 96 DPI instead selects a red texel.
+        // maps into the green half. Default linear ImageBrush realization still
+        // blends the adjacent red texel at its left boundary; the shader's
+        // nearest sampler applies afterward and must not change that policy.
         var brush = new TileSource(reads, Tile(PortableTileBrushKind.Image, image,
             new PortableRect(1, 0, 1, 1), PortableBrushMappingMode.Absolute));
         var effect = new ShaderSource(reads, Descriptor(shader, [1, 1, 1, 1],
@@ -107,7 +111,7 @@ public sealed class WpfOwnedShaderRecipeTests
             }
             texture.WritePixels<byte>(pixels);
             reads.Forbidden = true;
-            AssertGreenAtColdWarmAndNewTarget(target, source);
+            AssertPixelsAtColdWarmAndNewTarget(target, source, transparent: false, linearImage: true);
             Assert.Equal(capturedReads, reads.Count);
         }
     }
@@ -152,7 +156,7 @@ public sealed class WpfOwnedShaderRecipeTests
             new PortableShaderSampler(1, brush, PortableShaderSamplingMode.NearestNeighbor)));
         using var adapter = new WpfShaderRecordingImageSourceAdapter(null, target.Context, null, null);
         var parent = new global::ProGPU.Scene.DrawingContext();
-        parent.DrawRectangle(new global::ProGPU.Scene.SolidColorBrush(Vector4.One), null, new SceneRect(2, 3, 4, 5));
+        parent.DrawRectangle(new global::ProGPU.Vector.SolidColorBrush(Vector4.One), null, new SceneRect(2, 3, 4, 5));
         var before = Assert.Single(parent.Commands);
         int retainedBefore = parent.RetainedResourceCount;
         try
@@ -184,7 +188,7 @@ public sealed class WpfOwnedShaderRecipeTests
         using var target = ProGpuWpfCompositionTarget.CreateHeadless();
         using var shader = new ShaderRegistration(16, SampleShader);
         var reads = new SourceReads();
-        var drawing = new GeometrySource(reads) { Brush = Brushes.Lime };
+        var drawing = new GeometrySource(reads) { Brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 255, 0)) };
         var image = new DrawingImageSource(reads, null);
         var brush = new TileSource(reads, Tile(PortableTileBrushKind.Image, image));
         var effect = new ShaderSource(reads, Descriptor(shader, [1, 1, 1, 1],
@@ -237,7 +241,7 @@ public sealed class WpfOwnedShaderRecipeTests
         using var target = ProGpuWpfCompositionTarget.CreateHeadless();
         using var shader = new ShaderRegistration(17, SampleShader);
         var reads = new SourceReads();
-        var drawing = new GeometrySource(reads) { Brush = Brushes.Lime };
+        var drawing = new GeometrySource(reads) { Brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 255, 0)) };
         var image = new DrawingImageSource(reads, drawing);
         var brush = new TileSource(reads, Tile(PortableTileBrushKind.Image, image));
         var effect = new ShaderSource(reads, Descriptor(shader, [1, 1, 1, 1],
@@ -283,7 +287,7 @@ public sealed class WpfOwnedShaderRecipeTests
         AssertPixelsAtColdWarmAndNewTarget(target, source, transparent: false);
 
     private static void AssertPixelsAtColdWarmAndNewTarget(ProGpuWpfCompositionTarget target,
-        OwnedShaderEffectSource source, bool transparent)
+        OwnedShaderEffectSource source, bool transparent, bool linearImage = false)
     {
         using var content = EmptyContent();
         var visual = new SceneDrawingVisual { Size = new Vector2(8) };
@@ -305,8 +309,14 @@ public sealed class WpfOwnedShaderRecipeTests
                 Assert.Equal(checked((int)(side * side * 4)), pixels.Length);
                 for (int pixel = 0; pixel < pixels.Length; pixel += 4)
                 {
-                    Assert.Equal((byte)0, pixels[pixel]);
-                    Assert.Equal(transparent ? (byte)0 : (byte)255, pixels[pixel + 1]);
+                    // Independent texel-center interpolation for the original
+                    // 4x2 bitmap's right 1x1 DIP at 192 DPI. Source texel X is
+                    // 1.5 + 2*u; red ends at texel 1 and green starts at texel 2.
+                    double redWeight = linearImage
+                        ? Math.Max(0, 0.5 - 2 * ((pixel / 4 % side) + 0.5) / side)
+                        : 0;
+                    Assert.Equal((byte)Math.Round(255 * redWeight), pixels[pixel]);
+                    Assert.Equal(transparent ? (byte)0 : (byte)Math.Round(255 * (1 - redWeight)), pixels[pixel + 1]);
                     Assert.Equal((byte)0, pixels[pixel + 2]);
                     Assert.Equal(transparent ? (byte)0 : (byte)255, pixels[pixel + 3]);
                 }
@@ -424,7 +434,7 @@ public sealed class WpfOwnedShaderRecipeTests
     private sealed class VisualSource(SourceReads reads, object? content) : IPortableVisualStateSource,
         IPortableVisualBoundsSource, IPortableVisualChildrenSource, IPortableDrawingContentSource
     {
-        internal object? Content { get; set; } = content;
+        internal object? Content { get; set; } = content is null ? null : new DrawingRenderData(reads, content);
         internal PortableVisualState State { get; set; } = new();
         internal List<object> Children { get; } = [];
         public bool TryGetPortableVisualState(out PortableVisualState state)
@@ -442,6 +452,22 @@ public sealed class WpfOwnedShaderRecipeTests
         { reads.Read(); child = Children[index]; return true; }
         public bool TryGetPortableDrawingContent(out object? drawing)
         { reads.Read(); drawing = Content; return true; }
+    }
+
+    private sealed class DrawingRenderData(SourceReads reads, object drawing) : IPortableRenderDataSource
+    {
+        public bool TryGetPortableRenderDataSnapshot(out PortableRenderDataSnapshot snapshot)
+        {
+            reads.Read();
+            // Actual visual content is a MIL RenderData stream. Keep the same
+            // original mutable drawing as its dependent resource.
+            var record = new byte[16];
+            BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+            BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), (int)WpfMilCommandId.DrawDrawing);
+            BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), 1);
+            snapshot = new PortableRenderDataSnapshot(record, [drawing]);
+            return true;
+        }
     }
 
     private sealed class MetricsBitmap(SourceReads reads, GpuTexture texture)

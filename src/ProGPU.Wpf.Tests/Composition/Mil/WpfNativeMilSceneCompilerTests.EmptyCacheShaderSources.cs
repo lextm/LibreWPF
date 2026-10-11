@@ -28,7 +28,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         {
             var drawing = new FakeGeometryDrawing(inner, null,
                 new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
-                    new(1, 2, 30, 20), 0, 0, PortableMatrix3x2.Identity)));
+                    new(1, 2, 30, 20), 0, 0, PortableMatrix3x2.Identity)), new(1, 2, 30, 20));
             content = sharedKind switch
             {
                 3 => new(CreateRectangleRecord(1, 0), [new ShaderImageBrush(new FakeDrawingImage(drawing))]),
@@ -168,7 +168,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         byte[] firstBytes = first.Scene.Stream.ToArray();
 
         empty.Empty = false;
-        empty.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 0, 0, 255))]);
+        empty.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new PortableColor(255, 0, 0, 255))]);
         using var positiveBatch = compiler.BuildBatch(receiver, 64, 64);
         Assert.Empty(positiveBatch.EmptyCacheBrushSources.ToArray());
         Assert.Empty(positiveBatch.EmptyVisualBrushSources.ToArray());

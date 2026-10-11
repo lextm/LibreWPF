@@ -111,7 +111,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             case 7: effect.Samplers = []; break;
             case 8: effect.Samplers = [effect.Samplers[0], effect.Samplers[0]]; break;
             case 9: effect.Samplers = [PortableShaderSampler.Image(0, new object(), PortableShaderSamplingMode.Auto)]; break;
-            case 10: effect.Samplers = [new(0, new FakeBrush(new(255, 1, 2, 3)), PortableShaderSamplingMode.Auto)]; break;
+            case 10: effect.Samplers = [new(0, new FakeBrush(new PortableColor(255, 1, 2, 3)), PortableShaderSamplingMode.Auto)]; break;
             case 11: effect.Samplers = [PortableShaderSampler.ImplicitInput(0, (PortableShaderSamplingMode)99)]; break;
             case 12: effect.Constants = [1, 2, 3]; break;
             case 13: pixel.Major = 3; break;
@@ -189,7 +189,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         WriteDouble(content, 16, 2);
         WriteDouble(content, 24, 30);
         WriteDouble(content, 32, 20);
-        return new(new FakeRenderData(content, [new FakeBrush(new(255, 100, 150, 200))]),
+        return new(new FakeRenderData(content, [new FakeBrush(new PortableColor(255, 100, 150, 200))]),
             new PortableVisualState { HasEffect = true, Effect = effect });
     }
 

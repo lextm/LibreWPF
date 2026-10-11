@@ -72,7 +72,7 @@ public sealed partial class WpfVisualTreeRendererTests
         using var ordinary = WpfBitmapCacheBrushSourceLookup.Acquire(inner, null, null, null);
         Assert.Equal(0.0f, ordinary.Picture.Bounds.Width);
         var source = new FakePortableVisualStateDrawingVisual(
-            new FakeGeometryDrawing(new PortableRect(0, 0, 8, 8), inner), new())
+            CreateDrawingRenderData(new FakeGeometryDrawing(new PortableRect(0, 0, 8, 8), inner)), new())
         { Bounds = new Rect(0, 0, 8, 8) };
         Assert.Throws<NotSupportedException>(() => WpfBitmapCacheBrushCapture.CreateShaderSource(
             new CaptureBrush(new(source)), null, null, null));
@@ -129,7 +129,7 @@ public sealed partial class WpfVisualTreeRendererTests
     {
         var inner = new EventCaptureBrush();
         var target = new FakePortableVisualStateDrawingVisual(
-            new FakeGeometryDrawing(new PortableRect(0, 0, 8, 8), inner), new())
+            CreateDrawingRenderData(new FakeGeometryDrawing(new PortableRect(0, 0, 8, 8), inner)), new())
         { Bounds = new Rect(0, 0, 8, 8) };
         inner.Value = new(target, Opacity: 0);
         var outer = new CaptureBrush(new(target));
@@ -146,6 +146,14 @@ public sealed partial class WpfVisualTreeRendererTests
         Assert.Same(target, restored.Brush.InternalTarget);
         Assert.False(WpfCaptureReplayGuard.IsActive);
         Assert.False(WpfCaptureReplayGuard.ValidateHiddenSources);
+    }
+
+    private static FakeRenderData CreateDrawingRenderData(object drawing)
+    {
+        var payload = new byte[8];
+        WriteUInt32(payload, 0, 1);
+        var record = CreateRecord(WpfMilCommandId.DrawDrawing, payload);
+        return new FakeRenderData(record, record.Length, new FakeDependentResources(drawing));
     }
 
     private static FakePortableVisualStateDrawingVisual InvalidNestedShaderCacheTarget()

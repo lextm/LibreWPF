@@ -30,7 +30,7 @@ internal static partial class WpfDrawingReplay
             if (sink is not IWpfProGpuSceneDrawingContextSource source ||
                 !source.TryGetProGpuSceneDrawingContextState(out var context, out var transform) || context is null)
                 return WpfDrawingReplayStatus.Unsupported;
-            context.DrawPicture(owned, transform);
+            context.DrawPictureTransformed(owned, transform);
             return IsEmpty ? WpfDrawingReplayStatus.Skipped : WpfDrawingReplayStatus.Applied;
         }
 

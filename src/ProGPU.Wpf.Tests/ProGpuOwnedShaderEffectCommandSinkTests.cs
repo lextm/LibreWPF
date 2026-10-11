@@ -209,7 +209,7 @@ public sealed class ProGpuOwnedShaderEffectCommandSinkTests
         Assert.Same(media, sink.DrawingContext);
         Assert.True(Owned(sink).PushOwnedShaderEffect(source, Bounds()));
         Assert.Null(sink.DrawingContext);
-        sink.PushTransform(new TranslateTransform(2, 3));
+        sink.PushTransform(new MatrixTransform(1, 0, 0, 1, 2, 3));
         sink.DrawRectangle(Brushes.Red, null, new Rect(0, 0, 1, 1));
         Assert.Empty(parent.Commands);
         Assert.Equal(Matrix4x4.CreateTranslation(2, 3, 0), Assert.Single(sink.NativeContext.Commands).Transform);

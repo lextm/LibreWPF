@@ -165,7 +165,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     [InlineData(NativeMilBackend.Dawn)]
     public void VisualShaderSessionAppliesKnownEmptySourceAndRetainsLastGenerationAfterRejection(NativeMilBackend backend)
     {
-        var content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 255, 0, 0))]);
+        var content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new PortableColor(255, 255, 0, 0))]);
         var visual = new SamplerVisual(content);
         var brush = new VisualSamplerBrush(visual);
         var effect = VisualSamplerEffect(brush);

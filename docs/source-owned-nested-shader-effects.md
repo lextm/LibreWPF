@@ -105,6 +105,28 @@ the owned recording route rejects it before its source callback.
 Two additional PresentationCore source controls use real DrawingImage,
 DrawingGroup and GeometryDrawing instances to assert original exporter identity,
 false/null clear/refill, and successful known-empty group bounds separately.
-No builds, tests, syntax checks, verifiers, probes, GPU/UI/VM execution or CI
-dispatch were performed. Final combined producer/source validation, actual
-original-Windows rendering and platform application qualification remain pending.
+### Integration validation (2026-10-11)
+
+The combined source now replays owned pictures with `DrawPictureTransformed`.
+The matrix accepted by `DrawPicture` is a camera view, so passing the captured
+source transform there clipped the original nested VisualBrush and DrawingImage
+controls when the receiving target doubled in size. The original cold/warm and
+resized-target RGBA controls pass after correcting that call.
+
+Visual fixtures now retain the original drawing through a MIL RenderData packet,
+and positive DrawingImage fixtures publish their original authoritative bounds.
+The original 4x2 ImageBrush bitmap at 192 DPI retains its linear realization:
+exact expected boundary bytes come from independent texel-center interpolation.
+The shader's subsequent nearest sampling does not change that source policy.
+Mutation-after-recording checks and every RGBA channel remain exact.
+
+With ProGPU `3a95a19e7e6d245dfc7e4e83948eeb316353c5ec`, the source build and all
+283 focused controls passed on macOS ARM64. The complete ProGPU.Wpf.Tests suite
+then passed 2,805/2,805 with no skips, using the matching locally built native
+libraries. The exact producer separately completed all 59 jobs in Build
+[38147987408](https://github.com/wieslawsoltes/ProGPU/actions/runs/38147987408)
+and all 12 companion workflows before dependent pin publication.
+
+These are source-adapter and producer results. Downstream package CI, actual
+original-Windows rendering and platform application qualification remain
+separate gates tracked in LibreWPF #261.

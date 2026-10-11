@@ -102,7 +102,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     public void CacheShaderSessionRetainsRejectedGenerationAndReattachesSameTarget(NativeMilBackend backend)
     {
         var target = new SamplerVisual(new FakeRenderData(CreateRectangleRecord(1, 0),
-            [new FakeBrush(new(255, 255, 0, 0))]));
+            [new FakeBrush(new PortableColor(255, 255, 0, 0))]));
         var brush = new ShaderCacheBrush(new(target));
         var receiver = ShaderVisual(VisualSamplerEffect(brush));
         using var session = new WpfNativeMilCompilationSession(backend, CreateCacheShaderCompiler());

@@ -35,7 +35,7 @@ public sealed partial class WpfResourceResolverTests
         Assert.All(sink.RepeatedImages, draw =>
         {
             Assert.Same(adapter.AdaptedImageSource, draw.Image);
-            Assert.Equal(new Size(16, 24), draw.Bounds.Size);
+            Assert.Equal(new Size(16, 24), new Size(draw.Bounds.Width, draw.Bounds.Height));
             Assert.Equal(mirrorX, draw.MirrorX);
             Assert.Equal(mirrorY, draw.MirrorY);
         });

@@ -1025,15 +1025,20 @@ public sealed class WpfCompositionDrawingContextTests
         foreach (var command in nativeContext.Commands)
             capture.AddCommand(command, command.Transform, id: 4321);
         var hits = capture.BuildIndex().Primitives;
-        Assert.Equal(3, hits.Count);
-        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[0].Kind);
+        // The original clip lies wholly inside the rectangle's stroke. Keep
+        // its separate pen command, but do not invent a hit for clipped ink.
+        var penCommand = Assert.Single(nativeContext.Commands, command => command.Pen is not null);
         Assert.Equal(geometryCommand
-            ? global::ProGPU.Vector.GpuHitTestPrimitiveKind.PathStroke
-            : global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleStroke, hits[1].Kind);
+            ? global::ProGPU.Scene.RenderCommandType.DrawPath
+            : global::ProGPU.Scene.RenderCommandType.DrawRect, penCommand.Type);
+        Assert.Null(penCommand.Brush);
+        Assert.Equal(2, hits.Count);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[0].Kind);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[1].Kind);
         Assert.Equal(new Vector2(12, 14), hits[0].BoundsMin);
         Assert.Equal(new Vector2(32, 32), hits[0].BoundsMax);
-        Assert.Equal(new Vector2(1, 2), hits[2].BoundsMin);
-        Assert.Equal(new Vector2(4, 6), hits[2].BoundsMax);
+        Assert.Equal(new Vector2(1, 2), hits[1].BoundsMin);
+        Assert.Equal(new Vector2(4, 6), hits[1].BoundsMax);
         Assert.Equal(0, context.Result.UnsupportedCount);
     }
 

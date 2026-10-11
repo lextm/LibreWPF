@@ -5098,11 +5098,16 @@ public sealed partial class WpfVisualTreeRendererTests
                 Assert.Same(texture, Assert.Single(effect.Parameters.Samplers).Texture);
                 Assert.Equal(2, brushAdapter.LastSamplerRegisterIndex);
                 Assert.Equal(ProGpuTextureSamplingMode.Nearest, brushAdapter.LastSamplerMode);
-                var frame = Assert.Single(brushAdapter.Frames);
-                Assert.Same(root, frame.Owner);
-                Assert.Equal(0, frame.Padding);
-                Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(1, 2, 30, 40, 0, 0, 0, 0), frame.SourceCapture);
-                Assert.Equal(effect.SourceCapture, frame.SourceCapture);
+                // This sink declines retained-owner publication, so both the
+                // retained-state attempt and direct replay receive the frame.
+                Assert.Equal(2, brushAdapter.Frames.Count);
+                Assert.All(brushAdapter.Frames, frame =>
+                {
+                    Assert.Same(root, frame.Owner);
+                    Assert.Equal(0, frame.Padding);
+                    Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(1, 2, 30, 40, 0, 0, 0, 0), frame.SourceCapture);
+                    Assert.Equal(effect.SourceCapture, frame.SourceCapture);
+                });
                 Assert.Equal(0, result.UnsupportedVisualStateCount);
             }
             else
@@ -5135,20 +5140,25 @@ public sealed partial class WpfVisualTreeRendererTests
         try
         {
             var renderer = new WpfVisualTreeRenderer();
-            foreach (var owner in new[] { first, second, first })
+            var owners = new[] { first, second, first };
+            for (int index = 0; index < owners.Length; index++)
             {
-                if (adapter.Frames.Count == 2) first.Bounds = new Rect(7, 8, 50, 70);
+                var owner = owners[index];
+                if (index == 2) first.Bounds = new Rect(7, 8, 50, 70);
                 var result = renderer.ReplaySubtree(owner, new TestSink { AcceptVisualEffects = true }, imageSourceAdapter: resolver);
                 Assert.Equal(0, result.UnsupportedVisualStateCount);
                 Assert.Same(brush, adapter.LastSamplerBrush);
             }
-            Assert.Equal(3, adapter.Frames.Count);
-            Assert.Same(first, adapter.Frames[0].Owner);
-            Assert.Same(second, adapter.Frames[1].Owner);
-            Assert.Same(first, adapter.Frames[2].Owner);
-            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(3, 4, 100, 100, 0, 0, 0, 0), adapter.Frames[0].SourceCapture);
-            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(5, 6, 200, 20, 0, 0, 0, 0), adapter.Frames[1].SourceCapture);
-            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(7, 8, 50, 70, 0, 0, 0, 0), adapter.Frames[2].SourceCapture);
+            Assert.Equal(6, adapter.Frames.Count);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                Assert.Same(first, adapter.Frames[attempt].Owner);
+                Assert.Same(second, adapter.Frames[2 + attempt].Owner);
+                Assert.Same(first, adapter.Frames[4 + attempt].Owner);
+                Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(3, 4, 100, 100, 0, 0, 0, 0), adapter.Frames[attempt].SourceCapture);
+                Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(5, 6, 200, 20, 0, 0, 0, 0), adapter.Frames[2 + attempt].SourceCapture);
+                Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(7, 8, 50, 70, 0, 0, 0, 0), adapter.Frames[4 + attempt].SourceCapture);
+            }
         }
         finally { WpfShaderEffectRegistry.Unregister(key); }
     }
@@ -6400,6 +6410,8 @@ public sealed partial class WpfVisualTreeRendererTests
         {
             _children.Add(child);
         }
+
+        public void Clear() => _children.Clear();
     }
 
     private abstract class FakeProtectedVisualChildrenBase

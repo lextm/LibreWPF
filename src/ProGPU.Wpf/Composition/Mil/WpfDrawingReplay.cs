@@ -1160,8 +1160,8 @@ internal static partial class WpfDrawingReplay
         {
             if (WpfCaptureReplayGuard.ValidateHiddenSources)
             {
-                if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return true;
-                WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
+                if (!source.TryGetPortableBitmapCacheBrush(out var cacheBrush)) return true;
+                WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(cacheBrush);
             }
             status = WpfDrawingReplayStatus.Applied;
             return true;
@@ -1325,7 +1325,7 @@ internal static partial class WpfDrawingReplay
             (!brush.HasRelativeTransform || IsPositiveAxisBrushTransform(brush.RelativeTransform)) &&
             TryGetStretchedTile(tileBounds.GetAt(0), imageStretchSourceBounds, stretch,
                 alignmentX, alignmentY, out var firstTile, out var firstNeedsClip) &&
-            !firstNeedsClip && firstTile.Bounds == tileBounds.GetAt(0).Bounds;
+            !firstNeedsClip && BoundsEqual(firstTile.Bounds, tileBounds.GetAt(0).Bounds);
         if (repeatedImage)
         {
             // Enumerate in the actual captured brush frame, not pre-transform
@@ -1382,7 +1382,7 @@ internal static partial class WpfDrawingReplay
                 tilePopCount++;
             }
 
-            bool addressed = repeatedImage && !needsTileClip && stretchedTile.Bounds == tile.Bounds &&
+            bool addressed = repeatedImage && !needsTileClip && BoundsEqual(stretchedTile.Bounds, tile.Bounds) &&
                 ((IWpfRepeatedImageCommandSink)sink).TryDrawRepeatedImage(imageSource, stretchedTile.Bounds,
                     tileMode is SupportedTileMode.FlipX or SupportedTileMode.FlipXY,
                     tileMode is SupportedTileMode.FlipY or SupportedTileMode.FlipXY);
@@ -2577,7 +2577,7 @@ internal static partial class WpfDrawingReplay
         if (recorded) frame = recordedFrame!.Value;
         else if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out frame)) return false;
         if (!WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
-        completeSourceViewbox = stretchBounds == frame.Bounds;
+        completeSourceViewbox = BoundsEqual(stretchBounds, frame.Bounds);
         if (tileMode == SupportedTileMode.None)
         {
             fullImageBounds = frame.Bounds;
@@ -4098,6 +4098,10 @@ internal static partial class WpfDrawingReplay
 
         return new Rect(minX, minY, maxX - minX, maxY - minY);
     }
+
+    internal static bool BoundsEqual(Rect left, Rect right) =>
+        left.X == right.X && left.Y == right.Y &&
+        left.Width == right.Width && left.Height == right.Height;
 
     private static bool IsUsableRect(Rect rect, out Rect bounds)
     {

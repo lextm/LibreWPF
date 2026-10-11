@@ -23,7 +23,7 @@ public sealed partial class WpfVisualTreeRendererTests
         // Pure forwarding control, not a texture-creation/rendering assertion.
         var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(GpuTexture));
         var brush = new SourceVisualTile(disconnected ? null :
-            new FakeDrawingVisual(CreateRenderData(Brushes.Red)) { Bounds = new(10, 20, 8, 6) });
+            new FakeDrawingVisual(CreateRenderData(Brushes.Red)) { Bounds = new Rect(10, 20, 8, 6) });
         var adapter = new FakeShaderSamplerBrushAdapter(texture);
         var source = new FakePortableShaderEffectSource(new PortableShaderEffect(null, null,
             new PortablePixelShader(null, null, bytecode, 3, 0), [],
@@ -43,11 +43,14 @@ public sealed partial class WpfVisualTreeRendererTests
                 var effect = Assert.IsType<Scene.WpfShaderEffect>(Assert.Single(sink.VisualEffects));
                 Assert.Same(texture, Assert.Single(effect.Parameters.Samplers).Texture);
             }
-            Assert.Equal(2, adapter.Frames.Count);
-            Assert.Same(first, adapter.Frames[0].Owner);
-            Assert.Same(second, adapter.Frames[1].Owner);
-            Assert.Equal(new Scene.ShaderEffectSourceCapture(8, 10, 32, 24, 0, 0, 0, 0), adapter.Frames[0].SourceCapture);
-            Assert.Equal(new Scene.ShaderEffectSourceCapture(3, 4, 64, 48, 0, 0, 0, 0), adapter.Frames[1].SourceCapture);
+            Assert.Equal(4, adapter.Frames.Count);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                Assert.Same(first, adapter.Frames[attempt].Owner);
+                Assert.Same(second, adapter.Frames[2 + attempt].Owner);
+                Assert.Equal(new Scene.ShaderEffectSourceCapture(8, 10, 32, 24, 0, 0, 0, 0), adapter.Frames[attempt].SourceCapture);
+                Assert.Equal(new Scene.ShaderEffectSourceCapture(3, 4, 64, 48, 0, 0, 0, 0), adapter.Frames[2 + attempt].SourceCapture);
+            }
             var rejected = new TestSink { AcceptVisualEffects = true };
             Assert.Equal(1, renderer.ReplaySubtree(first, rejected,
                 imageSourceAdapter: new FakeImageSourceAdapter(null)).UnsupportedVisualStateCount);

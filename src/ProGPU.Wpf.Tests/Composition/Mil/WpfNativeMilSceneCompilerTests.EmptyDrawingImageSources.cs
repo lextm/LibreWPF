@@ -164,9 +164,9 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.ThrowsAny<Exception>(() => session.Update(invalid));
         Assert.Equal(bytes, session.CompileFrame(11957, 1, 0, 1).Scene.Stream.ToArray());
 
-        image.Drawing = new FakeGeometryDrawing(new FakeBrush(new(255, 0, 255, 0)), null,
+        image.Drawing = new FakeGeometryDrawing(new FakeBrush(new PortableColor(255, 0, 255, 0)), null,
             new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
-                new(1, 2, 30, 20), 0, 0, PortableMatrix3x2.Identity)));
+                new(1, 2, 30, 20), 0, 0, PortableMatrix3x2.Identity)), new(1, 2, 30, 20));
         using var positive = compiler.BuildBatch(receiver, 64, 64);
         Assert.Empty(positive.EmptyDrawingImageSources.ToArray());
         Assert.Single(positive.DrawingImageBounds!);
@@ -217,7 +217,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         byte[] originalBytes = original.Scene.Stream.ToArray();
 
         target.Empty = false;
-        target.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 255, 0, 0))]);
+        target.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new PortableColor(255, 255, 0, 0))]);
         using var innerRefilled = compiler.BuildBatch(receiver, 64, 64);
         Assert.Single(innerRefilled.EmptyDrawingImageSources.ToArray());
         Assert.Empty(innerRefilled.EmptyCacheBrushSources.ToArray());

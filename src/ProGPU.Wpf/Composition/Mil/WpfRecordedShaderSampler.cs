@@ -238,7 +238,7 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
             var recording = RecordContentCore(tile);
             proof.TryGetBounds(out var before, out var beforeEmpty);
             recording.TryGetBounds(out var after, out var afterEmpty);
-            if (before != after || beforeEmpty != afterEmpty)
+            if (!WpfDrawingReplay.BoundsEqual(before, after) || beforeEmpty != afterEmpty)
             {
                 recording.Dispose();
                 throw new InvalidOperationException("The original sampler source frame changed during owned recording.");

@@ -124,9 +124,9 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var effect = new ShaderEffectSource(new()) { Ddx = 7 };
         if (family == 1)
         {
-            var drawing = new FakeGeometryDrawing(new FakeBrush(new(255, 0, 255, 0)), null,
+            var drawing = new FakeGeometryDrawing(new FakeBrush(new PortableColor(255, 0, 255, 0)), null,
                 new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
-                    new(10, 20, 8, 6), 0, 0, PortableMatrix3x2.Identity)));
+                    new(10, 20, 8, 6), 0, 0, PortableMatrix3x2.Identity)), new(10, 20, 8, 6));
             var image = new FakeDrawingImage(drawing);
             var brush = new ShaderImageBrush(image);
             effect.Samplers = [PortableShaderSampler.Image(0, image, PortableShaderSamplingMode.NearestNeighbor, brush)];
@@ -134,7 +134,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         else if (family == 2)
         {
             var source = new SamplerVisual(new FakeRenderData(CreateRectangleRecord(1, 0),
-                [new FakeBrush(new(255, 0, 0, 255))]));
+                [new FakeBrush(new PortableColor(255, 0, 0, 255))]));
             effect.Samplers = [new(0, new ShaderCacheBrush(new(source)), PortableShaderSamplingMode.NearestNeighbor)];
         }
         return effect;
@@ -145,7 +145,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         byte[] record = CreateRectangleRecord(1, 0);
         WriteDouble(record, 8, 16); WriteDouble(record, 16, 16);
         WriteDouble(record, 24, 20); WriteDouble(record, 32, 12);
-        return new(new FakeRenderData(record, [new FakeBrush(new(255, 255, 255, 255))]),
+        return new(new FakeRenderData(record, [new FakeBrush(new PortableColor(255, 255, 255, 255))]),
             new() { HasEffect = true, Effect = effect }, new(16, 16, 20, 12));
     }
 }

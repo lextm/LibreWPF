@@ -27,7 +27,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         PrepareNativeDialog(fixture);
         var options = Assert.IsType<ProGpuWpfWindowOptions>(ReadRetirementField(fixture.Host, "_options"));
         if (invalid == "popup") options.IsPopupSurface = true;
-        if (invalid == "source") SetPrivateField(fixture.Host, "_modalInputOwner", null);
+        if (invalid == "source") SetPrivateField<object?>(fixture.Host, "_modalInputOwner", null);
         if (invalid == "hidden") fixture.Inner.Probe.Visible = false;
         if (invalid == "closing") SetPrivateField(fixture.Host, "_hasNativeWindowCloseStarted", true);
         int begins = 0;

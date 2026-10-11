@@ -55,7 +55,16 @@ public sealed partial class WpfResourceResolverTests
         Assert.Same(adapter.AdaptedImageSource, draw.ImageSource);
         Assert.Equal(new Rect(x, y, width, height), draw.Rectangle);
         Assert.Equal(2, sink.Clips.Count);
-        Assert.Equal(new Rect(0, 0, 100, 100), Assert.IsType<RectangleGeometry>(sink.Clips[1]).Rect);
+        var viewportClip = Assert.IsType<PathGeometry>(sink.Clips[1]);
+        Assert.Equal(new Rect(0, 0, 100, 100), viewportClip.Bounds);
+        var figure = Assert.Single(viewportClip.Figures);
+        Assert.Equal(new Point(0, 0), figure.StartPoint);
+        Assert.True(figure.IsClosed);
+        Assert.True(figure.IsFilled);
+        Assert.Collection(figure.Segments,
+            segment => Assert.Equal(new Point(100, 0), Assert.IsType<LineSegment>(segment).Point),
+            segment => Assert.Equal(new Point(100, 100), Assert.IsType<LineSegment>(segment).Point),
+            segment => Assert.Equal(new Point(0, 100), Assert.IsType<LineSegment>(segment).Point));
         Assert.Equal(0.25, Assert.Single(sink.Opacities));
         Assert.Equal(new[] { "PushClip", "PushOpacity", "PushClip", "Pop", "Pop", "Pop" }, sink.Operations);
     }
