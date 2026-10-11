@@ -9,6 +9,7 @@ projects on the ProGPU/Silk.NET platform.
 - `LibreWPF.Transport`
 - `ProGPU.Backend`
 - `ProGPU.Backend.Native`
+- `ProGPU.Native.Sdk`
 - `ProGPU.Backend.Dawn`
 - `ProGPU.Text.Shaping`
 - `ProGPU.DirectX`
@@ -34,7 +35,7 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.65 \
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.67 \
 PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-source.$(git -C external/ProGPU rev-parse --short=8 HEAD)" \
   ./eng/progpu-wpf-sdk-ci.sh
 ```
@@ -47,8 +48,12 @@ pack the complete ProGPU dependency closure from that exact source. This prevent
 assembly from loading an ABI-incompatible older ProGPU binary. The release workflow instead downloads
 immutable ProGPU release packages for the matching `v<version>` tag and requires the tag commit to
 equal the checked-out ProGPU submodule commit before packaging. The release job also stages the
-native runtimes from that exact `ProGPU.Backend.Native` package for source-host smoke tests; a
-NuGet package in the feed alone does not populate the source-host runtime directory. Every
+native runtimes and SDK inputs from the exact `ProGPU.Backend.Native` /
+`ProGPU.Native.Sdk` pair for source-host smoke tests; a
+NuGet package in the feed alone does not populate the source-host runtime directory.
+Both packages must match the release version and producer commit. Shared notices
+must have identical bytes; failed extraction publishes no partial staging directory.
+The complete package inventory is size-checked before any upload. Every
 downloaded package is audited against that tag commit recorded in its nuspec.
 Package audit and extracted-bundle verification also read every selected nuspec:
 each `ProGPU.*` or `LibreWPF.*` dependency must be present at the same declared
@@ -180,7 +185,7 @@ Publishing is gated by repository secret `NUGET_API_KEY`.
 Existing WPF applications should be able to switch only the project SDK:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.65">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.67">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>

@@ -3,6 +3,7 @@
 progpu_preview_runtime_package_ids=(
   ProGPU.Backend
   ProGPU.Backend.Dawn
+  ProGPU.Native.Sdk
   ProGPU.Backend.Native
   ProGPU.Text.Shaping
   ProGPU.DirectX
@@ -35,10 +36,10 @@ progpu_preview_package_version() {
   local package_id="$1"
   case "${package_id}" in
     LibreWPF.Transport|LibreWPF.ProGPU|LibreWPF.Sdk)
-      printf '%s\n' "${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.65}"
+      printf '%s\n' "${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.67}"
       ;;
     *)
-      printf '%s\n' "${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.65}"
+      printf '%s\n' "${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.67}"
       ;;
   esac
 }

@@ -64,6 +64,12 @@ class PreviewPackageClosureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ProGPU.Scene.Native requires ProGPU.Backend.Native.*absent"):
             CLOSURE.audit_packages(paths)
 
+    def test_native_sdk_transitive_dependency_is_required(self):
+        native = self.package("ProGPU.Backend.Native", dependencies=[("ProGPU.Native.Sdk", SOURCE_VERSION)])
+        with self.assertRaisesRegex(ValueError, "ProGPU.Native.Sdk.*absent"):
+            CLOSURE.audit_packages([native])
+        self.assertEqual(CLOSURE.audit_packages([native, self.package("ProGPU.Native.Sdk")]), 2)
+
     def test_released_preview_cannot_replace_source_commit_package(self):
         with self.assertRaisesRegex(ValueError, "requires ProGPU.Scene.Native.*contains 0.1.0-preview.65"):
             CLOSURE.audit_packages([self.bridge(), self.package("ProGPU.Scene.Native", WPF_VERSION)])

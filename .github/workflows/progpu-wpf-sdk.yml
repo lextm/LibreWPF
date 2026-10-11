@@ -298,6 +298,9 @@ jobs:
       - name: Validate preview package dependency closure controls
         run: python3 eng/tests/test_preview_package_closure.py -v
 
+      - name: Validate exact release native package staging
+        run: python3 eng/tests/test_release_native_packages.py -v
+
       - name: Run LibreWPF SDK gate
         id: sdk-gate
         env:

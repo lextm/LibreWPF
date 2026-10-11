@@ -81,7 +81,7 @@ Before:
 After:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.65">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.67">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -95,7 +95,7 @@ Older projects that still use `Microsoft.NET.Sdk.WindowsDesktop` should make the
 4. Keep existing app dependencies in place. For example, a Toolkit app only changes the SDK line:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.65">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.67">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -141,6 +141,7 @@ Manual release dispatch uses the same build and validation path for recovery pub
 | --- | --- | --- |
 | `ProGPU.Backend` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.svg)](https://www.nuget.org/packages/ProGPU.Backend) | WebGPU device, swapchain, Silk.NET windowing, and platform backend services. |
 | `ProGPU.Backend.Native` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Native.svg)](https://www.nuget.org/packages/ProGPU.Backend.Native) | Managed bindings and RID-specific C++ retained compositor/native backend assets used by the MIL replacement. |
+| `ProGPU.Native.Sdk` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Native.Sdk.svg)](https://www.nuget.org/packages/ProGPU.Native.Sdk) | Matching six-RID static SDK archives, dependency receipts and original notices, restored with the native backend. |
 | `ProGPU.Backend.Dawn` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Dawn.svg)](https://www.nuget.org/packages/ProGPU.Backend.Dawn) | Dawn native backend assets used by package-mode presentation hosts. |
 | `ProGPU.Text.Shaping` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Text.Shaping.svg)](https://www.nuget.org/packages/ProGPU.Text.Shaping) | AOT-safe OpenType shaping contracts and execution used by the text renderer. |
 | `ProGPU.DirectX` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.DirectX.svg)](https://www.nuget.org/packages/ProGPU.DirectX) | Direct3D-style facade for SciChart and typed D3D interop on ProGPU/WebGPU; it is not a Direct2D COM implementation. |
@@ -164,7 +165,7 @@ Manual release dispatch uses the same build and validation path for recovery pub
 ## Build And Release
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.65 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.65 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.67 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.67 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds managed WPF transport assemblies, `LibreWPF.ProGPU`, and `LibreWPF.Sdk`, then audits the packages, writes the preview manifest, creates and verifies the release bundle, and runs package-mode SDK smoke tests. Public releases consume the hash-identical packages from the matching ProGPU GitHub release instead of repacking or republishing them.
@@ -181,7 +182,10 @@ agree, builds the upstream-derived `System.Windows.Forms` identity against
 ProGPU `System.Drawing.Common`, serializes the WPF reference/cycle foundation,
 and compiles both the real `WindowsFormsIntegration` reference and implementation
 assemblies. It treats unresolved or duplicate assembly closures as errors. The
-ordinary SDK/package path remains on released ProGPU `0.1.0-preview.65` packages.
+ordinary SDK/package path targets the coordinated ProGPU `0.1.0-preview.67` release.
+Its native runtime and static SDK are separate exact-version packages; both are
+required in the local feed. Preview.66 stopped during ProGPU publication after
+NuGet rejected its oversized native package; its published history is retained.
 
 For a faster source-development loop, use the same qualified managed, theme,
 and harness project sets through the validation graph:

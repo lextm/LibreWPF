@@ -3,8 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
-dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.65}"
-progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.65}"
+dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.67}"
+progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.67}"
 transport_target_framework="${PROGPU_WPF_TRANSPORT_TARGET_FRAMEWORK:-net10.0}"
 source "${repo_root}/eng/progpu-preview-package-list.sh"
 
@@ -174,7 +174,11 @@ done
 python3 "${repo_root}/eng/progpu-preview-package-closure.py" "${package_files[@]}"
 
 for package_id in "${runtime_packages[@]}"; do
-  require_entry "${package_id}" "lib/net10.0/$(package_assembly_name "${package_id}").dll"
+  if [[ "${package_id}" == "ProGPU.Native.Sdk" ]]; then
+    require_entry "${package_id}" "build/native/ProGPUNativeSdkVersion.txt"
+  else
+    require_entry "${package_id}" "lib/net10.0/$(package_assembly_name "${package_id}").dll"
+  fi
   require_nuspec_repository \
     "${package_id}" \
     "https://github.com/wieslawsoltes/ProGPU" \
@@ -200,6 +204,7 @@ require_nuspec_contains LibreWPF.ProGPU "dependency id=\"Silk.NET.WebGPU\" versi
 require_nuspec_contains LibreWPF.ProGPU "dependency id=\"Silk.NET.Windowing\" version=\"2.23.0\""
 
 require_entry ProGPU.Backend.Native "lib/net10.0/ProGPU.Backend.Native.dll"
+require_nuspec_contains ProGPU.Backend.Native "dependency id=\"ProGPU.Native.Sdk\" version=\"${progpu_package_version}\""
 for native_rid in linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64 win-arm64; do
   native_library="libprogpu_native.so"
   dawn_library="libprogpu_native_dawn.so"

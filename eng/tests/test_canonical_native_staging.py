@@ -86,6 +86,9 @@ class ReleaseNativeStagingTests(unittest.TestCase):
             with self.subTest(metadata_only_archive=metadata_only_archive):
                 with tempfile.TemporaryDirectory(prefix="wpf-release-native-") as temporary:
                     root = Path(temporary)
+                    helper = root / "eng/progpu-stage-release-native-packages.py"
+                    helper.parent.mkdir()
+                    helper.write_bytes((ROOT / "eng/progpu-stage-release-native-packages.py").read_bytes())
                     packages = root / "packages"
                     packages.mkdir()
                     if metadata_only_archive:
@@ -95,10 +98,13 @@ class ReleaseNativeStagingTests(unittest.TestCase):
                             archive.writestr("ProGPU.Backend.Native.nuspec", "<package/>")
                     environment = dict(os.environ, GITHUB_WORKSPACE=str(root),
                                        PROGPU_WPF_PREPACKAGED_PROGPU_DIR=str(packages),
-                                       PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-test")
+                                       PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-test",
+                                       PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT="a" * 40)
                     result = subprocess.run(["bash", "-c", self.native_step()], cwd=root,
                                             env=environment, capture_output=True, text=True)
                     self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("ProGPU.Backend.Native", result.stderr)
+                    self.assertFalse((root / "external/ProGPU/artifacts/progpu-native/package").exists())
                     self.assertFalse((root / "external/ProGPU/artifacts/progpu-native/runtime").exists())
 
 

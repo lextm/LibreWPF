@@ -89,8 +89,8 @@ if [[ -z "${ProGpuWpfRuntimeFrameworkVersion:-}" ]]; then
 fi
 
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
-dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.65}"
-progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.65}"
+dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.67}"
+progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.67}"
 prepackaged_progpu_dir="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}"
 canonical_librewinforms_package_dir="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-progpu-packages"
@@ -298,6 +298,7 @@ rm -rf "${repo_root}/artifacts/packaging/Release/LibreWPF.Transport"
 echo "Staging exact ProGPU packages for the LibreWPF.Sdk feed..."
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend/ProGPU.Backend.csproj" "ProGPU.Backend"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj" "ProGPU.Backend.Dawn"
+stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Native.Sdk/ProGPU.Native.Sdk.csproj" "ProGPU.Native.Sdk"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj" "ProGPU.Backend.Native"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Text.Shaping/ProGPU.Text.Shaping.csproj" "ProGPU.Text.Shaping"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj" "ProGPU.DirectX"
