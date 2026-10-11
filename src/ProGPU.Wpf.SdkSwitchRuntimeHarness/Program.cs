@@ -533,23 +533,49 @@ internal static class Program
                 throw new InvalidOperationException($"SDK entry-assembly bootstrap failed ({child.ExitCode}): {receipt}{diagnostics}");
         }
 
+        RunReferencedSdkBootstrapSmoke(inputs, registerFileDialogProvider: false);
+        RunReferencedSdkBootstrapSmoke(inputs, registerFileDialogProvider: true);
+    }
+
+    private static void RunReferencedSdkBootstrapSmoke(SmokeInputs inputs, bool registerFileDialogProvider)
+    {
         using var loadContext = CreateLoadContext(inputs);
-        Assembly smokeAssembly = loadContext.LoadFromAssemblyPath(inputs.SmokeAssemblyPath);
-        Type bootstrapType = smokeAssembly.GetType(
-            "ProGPU.Wpf.Sdk.ProGpuWpfSdkPortableBootstrap",
-            throwOnError: true)!;
-
-        RuntimeHelpers.RunModuleConstructor(smokeAssembly.ManifestModule.ModuleHandle);
-
         Assembly presentationFramework = loadContext.LoadFromAssemblyName(new AssemblyName("PresentationFramework"));
         Type activationServiceType = GetRequiredType(presentationFramework, PortableWindowActivationServiceTypeName);
+        Type fileDialogServiceType = GetRequiredType(presentationFramework, PortableFileDialogServiceTypeName);
+        // IsEnabled selects portable routing on non-Windows even with no
+        // provider. Inspect the source service's actual callback ownership in
+        // this diagnostic harness, separately from that unchanged OS policy.
+        FieldInfo fileDialogProviderField = fileDialogServiceType.GetField(
+            "s_showDialog", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(fileDialogServiceType.FullName, "s_showDialog");
+        AssertEqual(null, fileDialogProviderField.GetValue(null), "Fresh file dialog service has no provider");
+        IDisposable? fileDialogRegistration = null;
         try
         {
+            if (registerFileDialogProvider && !OperatingSystem.IsWindows())
+            {
+                MethodInfo register = fileDialogServiceType.GetMethod(
+                    "Register", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null, types: [typeof(Func<object, string?>)], modifiers: null)
+                    ?? throw new MissingMethodException(fileDialogServiceType.FullName, "Register");
+                fileDialogRegistration = (IDisposable?)register.Invoke(
+                    null, [new Func<object, string?>(_ => null)]);
+                AssertEqual(false, fileDialogProviderField.GetValue(null) is null, "Caller file dialog provider is registered");
+            }
+            object? originalFileDialogProvider = fileDialogProviderField.GetValue(null);
+
+            Assembly smokeAssembly = loadContext.LoadFromAssemblyPath(inputs.SmokeAssemblyPath);
+            Type bootstrapType = smokeAssembly.GetType(
+                "ProGPU.Wpf.Sdk.ProGpuWpfSdkPortableBootstrap", throwOnError: true)!;
+            RuntimeHelpers.RunModuleConstructor(smokeAssembly.ManifestModule.ModuleHandle);
+
             AssertEqual(false, GetStaticProperty(activationServiceType, "IsEnabled"), "Referenced executable must not enable WPF activation");
             Type messageBoxServiceType = GetRequiredType(presentationFramework, PortableMessageBoxServiceTypeName);
             AssertEqual(false, GetStaticProperty(messageBoxServiceType, "IsEnabled"), "Referenced executable must not enable MessageBox services");
-            Type fileDialogServiceType = GetRequiredType(presentationFramework, PortableFileDialogServiceTypeName);
-            AssertEqual(false, GetStaticProperty(fileDialogServiceType, "IsEnabled"), "Referenced executable must not enable file dialogs");
+            AssertEqual(!OperatingSystem.IsWindows(), GetStaticProperty(fileDialogServiceType, "IsEnabled"), "File dialog routing retains its source OS policy");
+            AssertEqual(true, ReferenceEquals(originalFileDialogProvider, fileDialogProviderField.GetValue(null)),
+                "Referenced executable must neither install nor replace the file dialog provider");
             AssertEqual(
                 false,
                 loadContext.Assemblies.Any(assembly => string.Equals(assembly.GetName().Name, "ProGPU.Wpf", StringComparison.Ordinal)),
@@ -558,6 +584,7 @@ internal static class Program
         }
         finally
         {
+            fileDialogRegistration?.Dispose();
             ClearPortableService(presentationFramework, PortableMessageBoxServiceTypeName);
             ClearPortableService(presentationFramework, PortableFileDialogServiceTypeName);
             ClearPortableActivation(activationServiceType);

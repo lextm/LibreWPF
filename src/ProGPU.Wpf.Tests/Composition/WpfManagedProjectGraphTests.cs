@@ -17822,7 +17822,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("AssertEqual(expected, enabled.GetValue(null)", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("Referenced executable must not enable WPF activation", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("Referenced executable must not enable MessageBox services", runtimeHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("Referenced executable must not enable file dialogs", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("Fresh file dialog service has no provider", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("Caller file dialog provider is registered", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(originalFileDialogProvider, fileDialogProviderField.GetValue(null))", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("Referenced executable must neither install nor replace the file dialog provider", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("RunReferencedSdkBootstrapSmoke(inputs, registerFileDialogProvider: false)", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("RunReferencedSdkBootstrapSmoke(inputs, registerFileDialogProvider: true)", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("Referenced executable must not load ProGPU.Wpf", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("ValidatePortableSystemCommands(presentationFramework, window)", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("System.Windows.SystemCommands", runtimeHarnessProgram, StringComparison.Ordinal);
