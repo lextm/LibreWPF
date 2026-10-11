@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,6 +58,47 @@ class CanonicalNativeStagingTests(unittest.TestCase):
         status, arguments, _ = self.run_step(git_status=27)
         self.assertEqual(status, 27)
         self.assertEqual(arguments, [])
+
+
+class ReleaseNativeStagingTests(unittest.TestCase):
+    workflow = ROOT / ".github/workflows/progpu-wpf-release.yml"
+
+    def native_step(self):
+        workflow = self.workflow.read_text()
+        names = ["Stage exact ProGPU release packages",
+                 "Stage native runtimes from exact ProGPU release package",
+                 "Build canonical LibreWinForms package closure",
+                 "Align canonical package feed with exact ProGPU release",
+                 "Build, pack, and smoke SDK"]
+        positions = [workflow.index("      - name: " + name + "\n") for name in names]
+        self.assertEqual(positions, sorted(positions),
+                         "canonical drawing packages require native payloads before they can be produced")
+        step = workflow.split("      - name: " + names[1] + "\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertNotIn("continue-on-error", step)
+        return "\n".join(line[10:] for line in step.split("        run: |\n", 1)[1].splitlines())
+
+    def test_release_production_order(self):
+        self.native_step()
+
+    def test_absent_native_payload_cannot_reach_canonical_packaging(self):
+        for metadata_only_archive in (False, True):
+            with self.subTest(metadata_only_archive=metadata_only_archive):
+                with tempfile.TemporaryDirectory(prefix="wpf-release-native-") as temporary:
+                    root = Path(temporary)
+                    packages = root / "packages"
+                    packages.mkdir()
+                    if metadata_only_archive:
+                        # Deliberately contains no runtime bytes: this is a
+                        # rejection control, never a staged native substitute.
+                        with zipfile.ZipFile(packages / "ProGPU.Backend.Native.0.1.0-test.nupkg", "w") as archive:
+                            archive.writestr("ProGPU.Backend.Native.nuspec", "<package/>")
+                    environment = dict(os.environ, GITHUB_WORKSPACE=str(root),
+                                       PROGPU_WPF_PREPACKAGED_PROGPU_DIR=str(packages),
+                                       PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-test")
+                    result = subprocess.run(["bash", "-c", self.native_step()], cwd=root,
+                                            env=environment, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((root / "external/ProGPU/artifacts/progpu-native/runtime").exists())
 
 
 if __name__ == "__main__":
