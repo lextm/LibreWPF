@@ -8,11 +8,12 @@ fi
 
 progpu_commit="$1"
 runtime_stage="$2"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 progpu_repository="${PROGPU_CI_REPOSITORY:-wieslawsoltes/ProGPU}"
 poll_seconds="${PROGPU_CI_POLL_SECONDS:-20}"
 timeout_seconds="${PROGPU_CI_TIMEOUT_SECONDS:-5400}"
 
-for command in find gh jq unzip; do
+for command in find gh jq unzip python3; do
   command -v "${command}" >/dev/null 2>&1 || {
     echo "${command} is required to stage exact ProGPU CI runtimes." >&2
     exit 1
@@ -115,17 +116,21 @@ gh api \
   > "${artifact_archive}"
 unzip -q "${artifact_archive}" -d "${artifact_contents}"
 
-native_package="$(
-  find "${artifact_contents}" \
-    -type f -name 'ProGPU.Backend.Native.*.nupkg' -print -quit
-)"
-if [[ -z "${native_package}" ]]; then
-  echo "The exact ProGPU native-package artifact contains no ProGPU.Backend.Native package." >&2
+native_packages=()
+while IFS= read -r -d '' package; do
+  native_packages+=("${package}")
+done < <(find "${artifact_contents}" -type f -name 'ProGPU.Backend.Native.*.nupkg' -print0)
+if [[ "${#native_packages[@]}" != "1" ]]; then
+  echo "The exact ProGPU artifact must contain one ProGPU.Backend.Native package, found ${#native_packages[@]}." >&2
   exit 1
 fi
-
-mkdir -p "${runtime_stage}"
-unzip -q -o "${native_package}" 'runtimes/*' -d "${runtime_stage}"
+native_package="${native_packages[0]}"
+package_version="${native_package##*/ProGPU.Backend.Native.}"
+package_version="${package_version%.nupkg}"
+sdk_package="${native_package%/*}/ProGPU.Native.Sdk.${package_version}.nupkg"
+python3 "${script_dir}/progpu-stage-release-native-packages.py" \
+  "${native_package}" "${sdk_package}" "${runtime_stage}" \
+  --version "${package_version}" --commit "${progpu_commit}"
 
 required_runtimes=(
   runtimes/linux-x64/native/libprogpu_native.so

@@ -2,7 +2,9 @@
 """Package extraction/provenance controls; fixtures are not native qualification."""
 
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -76,6 +78,49 @@ class ReleaseNativePackagesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already exist"):
             self.stage(self.package(), self.package(sdk=True))
         self.assertEqual(original.read_bytes(), b"existing")
+
+
+class CiNativePackageSelectionTests(unittest.TestCase):
+    """Run the actual CI selection block with an argument-only extraction stub."""
+
+    def select(self, versions=(VERSION,), status=0):
+        with tempfile.TemporaryDirectory(prefix="ci-native-selection-") as temporary:
+            root = Path(temporary)
+            artifacts = root / "artifact"
+            artifacts.mkdir()
+            # Empty selection markers, never native payloads or valid packages.
+            for version in versions:
+                (artifacts / f"ProGPU.Backend.Native.{version}.nupkg").touch()
+            receipt = root / "arguments"
+            source = (ROOT / "eng/progpu-stage-ci-native-runtimes.sh").read_text()
+            block = source[source.index("native_packages=()\n"):source.index("required_runtimes=(\n")]
+            environment = dict(os.environ, artifact_contents=str(artifacts),
+                               runtime_stage=str(root / "staged"), script_dir=str(ROOT / "eng"),
+                               progpu_commit=COMMIT, RECEIPT=str(receipt), STAGE_STATUS=str(status))
+            script = '''set -euo pipefail
+python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
+''' + block
+            result = subprocess.run(["bash", "-c", script], env=environment, capture_output=True, text=True)
+            return result.returncode, receipt.read_text().splitlines() if receipt.exists() else [], root
+
+    def test_exact_artifact_pair_uses_one_version_and_original_commit(self):
+        status, arguments, root = self.select()
+        self.assertEqual(status, 0)
+        self.assertEqual(arguments, [str(ROOT / "eng/progpu-stage-release-native-packages.py"),
+                         str(root / f"artifact/ProGPU.Backend.Native.{VERSION}.nupkg"),
+                         str(root / f"artifact/ProGPU.Native.Sdk.{VERSION}.nupkg"),
+                         str(root / "staged"), "--version", VERSION, "--commit", COMMIT])
+
+    def test_missing_or_ambiguous_native_artifact_never_calls_extraction(self):
+        for versions in ((), (VERSION, "0.1.0-preview.68")):
+            with self.subTest(versions=versions):
+                status, arguments, _ = self.select(versions)
+                self.assertNotEqual(status, 0)
+                self.assertEqual(arguments, [])
+
+    def test_failed_pair_extraction_stops_ci_staging(self):
+        status, _, _ = self.select(status=23)
+        self.assertEqual(status, 23)
 
 
 if __name__ == "__main__":
