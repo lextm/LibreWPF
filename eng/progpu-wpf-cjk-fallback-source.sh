@@ -13,11 +13,12 @@ if [[ ! -x "${dotnet_command}" || -d "${dotnet_command}" ]]; then
 fi
 configuration="${CONFIGURATION:-Release}"
 assembly="${repo_root}/artifacts/bin/PresentationCore.Tests/${configuration}/net10.0-windows/PresentationCore.Tests.dll"
-test_filters=(--filter-method '*HongKongFallbackRetainsItsSpecificMap')
+# Bash 3.2 rejects an empty array under nounset; the class filter is always required.
+test_filters=(--filter-class System.Windows.Media.CompositeFontCjkFallbackTests)
 minimum_tests=4
 
 case "${1:-}" in
-  '') ;;
+  '') test_filters+=(--filter-method '*HongKongFallbackRetainsItsSpecificMap') ;;
   --macos-fonts)
     if [[ "$(uname -s)" != Darwin ]]; then
       echo "The physical CJK face gate requires the actual macOS font collection." >&2
@@ -31,7 +32,6 @@ case "${1:-}" in
     "${dotnet_command}" build \
       "${repo_root}/src/Microsoft.DotNet.Wpf/tests/UnitTests/PresentationCore.Tests/PresentationCore.Tests.csproj" \
       --configuration "${configuration}" -m:1 -p:UseSharedCompilation=false --verbosity minimal
-    test_filters=()
     minimum_tests=36
     ;;
   *) echo "Usage: $0 [--macos-fonts]" >&2; exit 2 ;;
@@ -43,6 +43,5 @@ fi
 
 export LIBREWPF_TEST_MEDIA_BACKEND=Portable
 exec "${dotnet_command}" "${assembly}" \
-  --filter-class System.Windows.Media.CompositeFontCjkFallbackTests \
   "${test_filters[@]}" --minimum-expected-tests "${minimum_tests}" \
   --fail-skips on --timeout 60s --no-progress
