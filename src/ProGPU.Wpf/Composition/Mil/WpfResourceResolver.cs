@@ -2598,16 +2598,20 @@ public sealed class WpfResourceResolver :
         {
             var portableFigures = portablePath.Figures;
             var figures = new PathFigureCollection(portableFigures.Length);
+            // The shim inherits List<T>, but source WPF collections do not. Dispatch
+            // through the shared public interface instead of List<T>'s object layout.
+            ICollection<PathFigure> figureItems = figures;
 
             for (var figureIndex = 0; figureIndex < portableFigures.Length; figureIndex++)
             {
                 var portableFigure = portableFigures[figureIndex];
                 var portableSegments = portableFigure.Segments;
                 var segments = new PathSegmentCollection(portableSegments.Length);
+                ICollection<PathSegment> segmentItems = segments;
                 for (var segmentIndex = 0; segmentIndex < portableSegments.Length; segmentIndex++)
                 {
                     var segment = portableSegments[segmentIndex];
-                    segments.Add(CreatePortablePathSegment(segment));
+                    segmentItems.Add(CreatePortablePathSegment(segment));
                 }
 
                 var figure = new PathFigure
@@ -2618,7 +2622,7 @@ public sealed class WpfResourceResolver :
                     IsFilled = portableFigure.IsFilled
                 };
 
-                figures.Add(figure);
+                figureItems.Add(figure);
             }
 
             geometry = new PathGeometry
@@ -2715,23 +2719,21 @@ public sealed class WpfResourceResolver :
 
     private static PathGeometry CreateRectanglePath(double x, double y, double width, double height)
     {
-        var segments = new PathSegmentCollection(capacity: 3)
-        {
-            new LineSegment(new Point(x + width, y), isStroked: true),
-            new LineSegment(new Point(x + width, y + height), isStroked: true),
-            new LineSegment(new Point(x, y + height), isStroked: true)
-        };
+        var segments = new PathSegmentCollection(capacity: 3);
+        ICollection<PathSegment> segmentItems = segments;
+        segmentItems.Add(new LineSegment(new Point(x + width, y), isStroked: true));
+        segmentItems.Add(new LineSegment(new Point(x + width, y + height), isStroked: true));
+        segmentItems.Add(new LineSegment(new Point(x, y + height), isStroked: true));
 
-        var figures = new PathFigureCollection(capacity: 1)
+        var figures = new PathFigureCollection(capacity: 1);
+        ICollection<PathFigure> figureItems = figures;
+        figureItems.Add(new PathFigure
         {
-            new PathFigure
-            {
-                Segments = segments,
-                StartPoint = new Point(x, y),
-                IsClosed = true,
-                IsFilled = true
-            }
-        };
+            Segments = segments,
+            StartPoint = new Point(x, y),
+            IsClosed = true,
+            IsFilled = true
+        });
 
         var geometry = new PathGeometry
         {

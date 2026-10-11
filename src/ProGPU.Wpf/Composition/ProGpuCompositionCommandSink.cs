@@ -2747,7 +2747,7 @@ public sealed partial class ProGpuCompositionCommandSink :
         ref int segmentCount)
     {
         AddHash(ref hash, (int)pathGeometry.FillRule);
-        var figures = pathGeometry.Figures;
+        IList<PathFigure>? figures = pathGeometry.Figures;
         if (figures == null)
         {
             return false;
@@ -2767,7 +2767,7 @@ public sealed partial class ProGpuCompositionCommandSink :
             AddHash(ref hash, figure.IsClosed ? 1 : 0);
             AddHash(ref hash, figure.IsFilled ? 1 : 0);
 
-            var segments = figure.Segments;
+            IList<PathSegment> segments = figure.Segments;
             segmentCount += segments.Count;
             AddHash(ref hash, segments.Count);
             for (var segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)

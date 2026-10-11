@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media.ProGPU.Composition.Mil;
 using MediaGeometry = System.Windows.Media.Geometry;
@@ -116,29 +117,31 @@ internal static class WpfMediaRectangleClipReader
         out WpfReplayRect bounds)
     {
         bounds = default;
-        if (pathGeometry.Figures.Count != 1)
+        IList<PathFigure> figures = pathGeometry.Figures;
+        if (figures.Count != 1)
         {
             return false;
         }
 
-        var figure = pathGeometry.Figures[0];
+        var figure = figures[0];
         if (!figure.IsClosed || (requireFilled && !figure.IsFilled))
         {
             return false;
         }
 
-        var segmentCount = figure.Segments.Count;
+        IList<PathSegment> segments = figure.Segments;
+        var segmentCount = segments.Count;
         if (segmentCount is not (3 or 4))
         {
             return false;
         }
 
         var point0 = figure.StartPoint;
-        if (figure.Segments[0] is not MediaLineSegment lineSegment0
+        if (segments[0] is not MediaLineSegment lineSegment0
             || (requireStrokedSegments && !lineSegment0.IsStroked)
-            || figure.Segments[1] is not MediaLineSegment lineSegment1
+            || segments[1] is not MediaLineSegment lineSegment1
             || (requireStrokedSegments && !lineSegment1.IsStroked)
-            || figure.Segments[2] is not MediaLineSegment lineSegment2
+            || segments[2] is not MediaLineSegment lineSegment2
             || (requireStrokedSegments && !lineSegment2.IsStroked))
         {
             return false;
@@ -149,7 +152,7 @@ internal static class WpfMediaRectangleClipReader
         var point3 = lineSegment2.Point;
         if (segmentCount == 4)
         {
-            if (figure.Segments[3] is not MediaLineSegment closingSegment
+            if (segments[3] is not MediaLineSegment closingSegment
                 || (requireStrokedSegments && !closingSegment.IsStroked)
                 || !NearlyEqual(closingSegment.Point.X, point0.X)
                 || !NearlyEqual(closingSegment.Point.Y, point0.Y))

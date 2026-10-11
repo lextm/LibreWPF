@@ -7,7 +7,6 @@ using MediaGeometry = System.Windows.Media.Geometry;
 using MediaLineGeometry = System.Windows.Media.LineGeometry;
 using MediaLineSegment = System.Windows.Media.LineSegment;
 using MediaPathGeometry = System.Windows.Media.PathGeometry;
-using MediaPathSegmentCollection = System.Windows.Media.PathSegmentCollection;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -120,20 +119,22 @@ internal static class WpfMediaLineGeometryReader
         Matrix4x4 transform,
         out LinePrimitiveFingerprint fingerprint)
     {
-        if (pathGeometry.Figures.Count != 1)
+        IList<PathFigure> figures = pathGeometry.Figures;
+        if (figures.Count != 1)
         {
             fingerprint = default;
             return false;
         }
 
-        var figure = pathGeometry.Figures[0];
-        if (figure.IsClosed || figure.Segments.Count != 1)
+        var figure = figures[0];
+        IList<PathSegment> segmentItems = figure.Segments;
+        if (figure.IsClosed || segmentItems.Count != 1)
         {
             fingerprint = default;
             return false;
         }
 
-        if (figure.Segments[0] is MediaLineSegment lineSegment
+        if (segmentItems[0] is MediaLineSegment lineSegment
             && lineSegment.IsStroked
             && IsUsablePoint(figure.StartPoint, out var startPoint)
             && IsUsablePoint(lineSegment.Point, out var endPoint))
@@ -153,14 +154,16 @@ internal static class WpfMediaLineGeometryReader
         out IReadOnlyList<WpfReplayLineSegment> segments)
     {
         primitive = default;
-        if (pathGeometry.Figures.Count != 1)
+        IList<PathFigure> figures = pathGeometry.Figures;
+        if (figures.Count != 1)
         {
             segments = Array.Empty<WpfReplayLineSegment>();
             return false;
         }
 
-        var figure = pathGeometry.Figures[0];
-        var segmentCount = figure.Segments.Count;
+        var figure = figures[0];
+        IList<PathSegment> segmentItems = figure.Segments;
+        var segmentCount = segmentItems.Count;
         if (segmentCount < 2)
         {
             segments = Array.Empty<WpfReplayLineSegment>();
@@ -175,7 +178,7 @@ internal static class WpfMediaLineGeometryReader
         }
 
         if (!IsUsablePoint(figure.StartPoint, out var startPoint)
-            || !TryReadPolylineSegmentPoints(figure.Segments, out var rawSegmentPoints))
+            || !TryReadPolylineSegmentPoints(segmentItems, out var rawSegmentPoints))
         {
             segments = Array.Empty<WpfReplayLineSegment>();
             return false;
@@ -218,7 +221,7 @@ internal static class WpfMediaLineGeometryReader
     }
 
     private static bool TryReadPolylineSegmentPoints(
-        MediaPathSegmentCollection segments,
+        IList<PathSegment> segments,
         out Point[] points)
     {
         var segmentCount = segments.Count;
@@ -373,14 +376,20 @@ internal static class WpfMediaLineGeometryReader
         {
             if (!TryGetGeometryTransform(geometry, out var transform)
                 || geometry is not MediaPathGeometry pathGeometry
-                || pathGeometry.Figures.Count != 1
                 || !SameTransform(cache._polylineTransform, transform))
             {
                 return false;
             }
 
-            var figure = pathGeometry.Figures[0];
-            var segmentCount = figure.Segments.Count;
+            IList<PathFigure> figures = pathGeometry.Figures;
+            if (figures.Count != 1)
+            {
+                return false;
+            }
+
+            var figure = figures[0];
+            IList<PathSegment> segmentItems = figure.Segments;
+            var segmentCount = segmentItems.Count;
             if (segmentCount < 2
                 || segmentCount != cachedPoints.Length
                 || figure.IsClosed != cache._polylineIsClosed)
@@ -402,7 +411,7 @@ internal static class WpfMediaLineGeometryReader
 
             for (var i = 0; i < segmentCount; i++)
             {
-                if (figure.Segments[i] is not MediaLineSegment lineSegment
+                if (segmentItems[i] is not MediaLineSegment lineSegment
                     || !lineSegment.IsStroked
                     || !IsUsablePoint(lineSegment.Point, out var nextPoint)
                     || !SamePoint(cachedPoints[i], nextPoint))

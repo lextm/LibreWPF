@@ -17408,8 +17408,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("TryValidatePolylineSegments(geometry, cached)", wpfMediaLineGeometryReader, StringComparison.Ordinal);
         Assert.DoesNotContain("SamePoint(cached[cachedIndex].StartPoint, currentPoint)", wpfMediaLineGeometryReader, StringComparison.Ordinal);
         Assert.DoesNotContain("Array.Resize(ref lineSegments", wpfMediaLineGeometryReader, StringComparison.Ordinal);
-        Assert.Contains("figure.IsClosed || figure.Segments.Count != 1", wpfMediaLineGeometryReader, StringComparison.Ordinal);
-        Assert.Contains("figure.Segments[0] is MediaLineSegment lineSegment", wpfMediaLineGeometryReader, StringComparison.Ordinal);
+        Assert.Contains("IList<PathFigure> figures = pathGeometry.Figures", wpfMediaLineGeometryReader, StringComparison.Ordinal);
+        Assert.Contains("IList<PathSegment> segmentItems = figure.Segments", wpfMediaLineGeometryReader, StringComparison.Ordinal);
+        Assert.Contains("figure.IsClosed || segmentItems.Count != 1", wpfMediaLineGeometryReader, StringComparison.Ordinal);
+        Assert.Contains("segmentItems[0] is MediaLineSegment lineSegment", wpfMediaLineGeometryReader, StringComparison.Ordinal);
         Assert.Contains("lineSegment.IsStroked", wpfMediaLineGeometryReader, StringComparison.Ordinal);
         Assert.Contains("public static bool TryGetPolylineSegments(", wpfMediaLineGeometryReader, StringComparison.Ordinal);
         Assert.Contains("WpfMediaRectangleClipReader.TryGetRectangleStrokeBounds(pathGeometry, out _)", wpfMediaLineGeometryReader, StringComparison.Ordinal);
@@ -17442,7 +17444,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("rectangleGeometry.RadiusY == 0", wpfMediaRectangleClipReader, StringComparison.Ordinal);
         Assert.Contains("geometry is MediaPathGeometry pathGeometry", wpfMediaRectangleClipReader, StringComparison.Ordinal);
         Assert.Contains("var point0 = figure.StartPoint", wpfMediaRectangleClipReader, StringComparison.Ordinal);
-        Assert.Contains("figure.Segments[0] is not MediaLineSegment lineSegment0", wpfMediaRectangleClipReader, StringComparison.Ordinal);
+        Assert.Contains("IList<PathFigure> figures = pathGeometry.Figures", wpfMediaRectangleClipReader, StringComparison.Ordinal);
+        Assert.Contains("IList<PathSegment> segments = figure.Segments", wpfMediaRectangleClipReader, StringComparison.Ordinal);
+        Assert.Contains("segments[0] is not MediaLineSegment lineSegment0", wpfMediaRectangleClipReader, StringComparison.Ordinal);
         Assert.Contains("TryCreateRectangleFromPolygon(point0, point1, point2, point3, out bounds)", wpfMediaRectangleClipReader, StringComparison.Ordinal);
         Assert.Contains("TryMarkRectangleCorner(point0, left, top, right, bottom", wpfMediaRectangleClipReader, StringComparison.Ordinal);
         Assert.Contains("IsAxisAlignedRectangleEdge(point3, point0)", wpfMediaRectangleClipReader, StringComparison.Ordinal);
