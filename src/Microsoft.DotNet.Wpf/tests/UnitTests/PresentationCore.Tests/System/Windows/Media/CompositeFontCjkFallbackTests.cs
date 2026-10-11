@@ -10,10 +10,10 @@ namespace System.Windows.Media;
 // Locks the macOS CJK fallback contract of the four default composite fonts. The composite
 // maps used to list only Windows families for most CJK ranges, so a request that reached
 // them fell through to the base family and drew .notdef (tofu). This exercises the actual
-// resolution and layout, not the map data: for each default family, language and
+// physical face resolution: for each default family, language and
 // representative character it requires a real physical face, a real glyph (never .notdef)
-// and a non-zero measured extent. Runs only under the portable media backend because the
-// Windows-MIL path resolves through the Windows font collection instead.
+// and a positive advance. The physical-face cases require macOS and the portable media
+// backend; the map-order cases also protect the original Windows font priority.
 [Collection("Sequential")]
 public class CompositeFontCjkFallbackTests
 {
@@ -38,19 +38,49 @@ public class CompositeFontCjkFallbackTests
                     yield return new object[] { family, language, text };
     }
 
-    // The portable backend must be selected before WPF is constructed; a Windows-MIL
-    // test process resolves through the real Windows font collection and must not run here.
-    private sealed class PortableMediaTheoryAttribute : TheoryAttribute
+    [Theory]
+    [InlineData("Global User Interface")]
+    [InlineData("Global Monospace")]
+    [InlineData("Global Sans Serif")]
+    [InlineData("Global Serif")]
+    public void HongKongFallbackRetainsItsSpecificMap(string familyName)
     {
-        public PortableMediaTheoryAttribute([System.Runtime.CompilerServices.CallerFilePath] string? sourceFilePath = null,
+        var maps = new FontFamily(familyName).FamilyMaps;
+        var culture = CultureInfo.GetCultureInfo("zh-HK");
+        var specificMaps = maps.Where(map => map.Language?.IetfLanguageTag == "zh-hk").ToArray();
+        Assert.NotEmpty(specificMaps);
+
+        // Lookup can change only at a map boundary. Check every overlapping range,
+        // including supplementary characters, through the actual source matchers.
+        int[] boundaries = maps.SelectMany(map => map.Ranges)
+            .SelectMany(range => new[] { range.First, range.Last }).Distinct().ToArray();
+        foreach (var specific in specificMaps)
+        {
+            foreach (int character in boundaries.Where(specific.InRange))
+            {
+                var selected = maps.First(map => map.InRange(character) &&
+                    FontFamilyMap.MatchCulture(map.Language, culture));
+                Assert.True(ReferenceEquals(specific, selected),
+                    $"{familyName}/zh-HK U+{character:X}: '{specific.Target}' was shadowed by '{selected.Target}'.");
+            }
+        }
+    }
+
+    // The portable backend must be selected before WPF is constructed. Other platforms
+    // have different installed font inventories and do not qualify macOS face selection.
+    private sealed class MacOSPortableMediaTheoryAttribute : TheoryAttribute
+    {
+        public MacOSPortableMediaTheoryAttribute([System.Runtime.CompilerServices.CallerFilePath] string? sourceFilePath = null,
             [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0) : base(sourceFilePath, sourceLineNumber)
         {
-            if (ProGPU.Wpf.Interop.PortableWpfRuntime.ConfiguredMediaBackend != ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable)
+            if (!OperatingSystem.IsMacOS())
+                Skip = "Requires the macOS font collection.";
+            else if (ProGPU.Wpf.Interop.PortableWpfRuntime.ConfiguredMediaBackend != ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable)
                 Skip = "Requires a process initialized with portable media before WPF construction.";
         }
     }
 
-    [PortableMediaTheory]
+    [MacOSPortableMediaTheory]
     [MemberData(nameof(Cases))]
     public void DefaultCompositeFontResolvesChineseFallbackToARealGlyph(string familyName, string language, string text)
     {
@@ -68,27 +98,32 @@ public class CompositeFontCjkFallbackTests
         Assert.True(face!.HasCharacter(text[0]),
             $"{familyName}/{language}: '{face.FamilyNames.Values.First()}' has no glyph for U+{(int)text[0]:X4} (would draw .notdef).");
 
-        // The real glyph also has a positive advance, i.e. the character has an actual ink
-        // extent rather than a zero-advance .notdef placeholder.
+        // Require a real glyph with positive advance. This does not measure ink or
+        // establish shaping, control layout or rendered-pixel parity.
         Assert.True(face.CharacterToGlyphMap.TryGetValue(text[0], out ushort glyph) && glyph != 0 &&
             face.AdvanceWidths.TryGetValue(glyph, out double advance) && advance > 0,
             $"{familyName}/{language}: '{text}' (U+{(int)text[0]:X4}) has no positive advance width.");
 
-        // ...and the language selects the right script variant of the face: a zh-Hant run
-        // must land on a Traditional-priority face (PingFang TC/Heiti TC/Songti TC), not a
-        // Simplified one, and vice versa. Without this a shared range that lets Traditional
-        // fall through to a Simplified-first generic map would still pass.
+        // The selected map must prioritize the matching macOS script. Original Windows
+        // families remain ahead of the added macOS fallbacks if installed on this host.
+        var map = family.FamilyMaps.First(candidate => candidate.InRange(text[0]) &&
+            FontFamilyMap.MatchCulture(candidate.Language, culture));
+        string[] targets = map.Target.Split(',', StringSplitOptions.TrimEntries);
+        string[] traditionalFamilies = { "PingFang TC", "PingFang HK", "Heiti TC", "Songti TC" };
+        string[] simplifiedFamilies = { "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Songti SC" };
+        string[] expectedFamilies = language == "zh-Hant" ? traditionalFamilies : simplifiedFamilies;
+        string[] otherFamilies = language == "zh-Hant" ? simplifiedFamilies : traditionalFamilies;
+        int expectedPriority = Array.FindIndex(targets, expectedFamilies.Contains);
+        int otherPriority = Array.FindIndex(targets, otherFamilies.Contains);
+        Assert.True(expectedPriority >= 0 && (otherPriority < 0 || expectedPriority < otherPriority),
+            $"{familyName}/{language}: '{map.Target}' does not prioritize the matching macOS script.");
         string names = string.Join(" | ", face.FamilyNames.Values);
-        if (language == "zh-Hant")
-            Assert.True(names.Contains("TC", StringComparison.Ordinal),
-                $"{familyName}/zh-Hant: '{text}' resolved to the non-Traditional face '{names}'.");
-        else
-            Assert.True(names.Contains("SC", StringComparison.Ordinal) || names.Contains("GB", StringComparison.Ordinal),
-                $"{familyName}/zh-Hans: '{text}' resolved to the non-Simplified face '{names}'.");
+        Assert.True(face.FamilyNames.Values.Any(name => targets.Contains(name, StringComparer.OrdinalIgnoreCase)),
+            $"{familyName}/{language}: '{text}' resolved outside the selected map to '{names}'.");
 
         // A full control layout (TextBlock.DesiredSize.Width > 0) needs the real text-shaping
         // provider, which only a host process registers; the unit-test process has no such
-        // provider, so the face+glyph assertions above are the meaningful in-process lock.
-        // The end-to-end extent is covered by the host integration tests.
+        // provider. These assertions leave full control layout and pixel qualification
+        // to a host integration run.
     }
 }
