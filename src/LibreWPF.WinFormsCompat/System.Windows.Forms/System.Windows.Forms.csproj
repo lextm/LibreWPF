@@ -19,6 +19,6 @@
   <ItemGroup>
     <PackageReference Include="System.CodeDom" Version="10.0.0" />
     <ProjectReference Include="..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
-    <ProjectReference Include="$(LibreWinFormsSourceRoot)src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" AdditionalProperties="ProGpuSourceRoot=$(ProGpuSourceRoot)" />
+    <ProjectReference Include="$(LibreWinFormsSourceRoot)src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" />
   </ItemGroup>
 </Project>

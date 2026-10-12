@@ -33,7 +33,7 @@
     <ProjectReference Include="..\..\src\ProGPU.Compatibility\WindowsBase\WindowsBase.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\ProGPU.Compatibility\PresentationCore\PresentationCore.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
-    <ProjectReference Include="$(LibreWinFormsSourceRoot)src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" AdditionalProperties="ProGpuSourceRoot=$(ProGpuSourceRoot)" PrivateAssets="all" />
+    <ProjectReference Include="$(LibreWinFormsSourceRoot)src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\LibreWPF.WinFormsCompat\System.Windows.Forms\System.Windows.Forms.csproj" />
     <ProjectReference Include="..\ProGPU.Wpf\ProGPU.Wpf.csproj" />
   </ItemGroup>

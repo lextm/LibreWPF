@@ -11,12 +11,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WindowsBase\WindowsBase.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Backend/ProGPU.Backend.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Vector/ProGPU.Vector.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Text/ProGPU.Text.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Scene/ProGPU.Scene.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Layout/ProGPU.Layout.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/ProGPU.Backend/ProGPU.Backend.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/ProGPU.Vector/ProGPU.Vector.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/ProGPU.Text/ProGPU.Text.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/ProGPU.Scene/ProGPU.Scene.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/ProGPU.Layout/ProGPU.Layout.csproj" />
     <ProjectReference Include="../../ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" />
-    <ProjectReference Include="$(ProGpuSourceRoot)src/SkiaSharp/SkiaSharp.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src/SkiaSharp/SkiaSharp.csproj" />
   </ItemGroup>
 </Project>
