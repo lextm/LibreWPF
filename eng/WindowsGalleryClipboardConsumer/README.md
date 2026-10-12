@@ -82,6 +82,16 @@ from the empty preflight until the original copy action. Existing sequence
 ownership checks still govern all subsequent writes and cleanup. This mode
 does not authorize replacing a local or self-hosted machine's clipboard.
 
+The private diagnostic host uses console output type with WinExe inference
+disabled. Only the disposable CI mode launches it with `CREATE_NEW_CONSOLE`,
+giving it normal console startup instead of inheriting the background runner's
+console. This does not grant capture admission: the existing single foreground
+request, actual HWND/PID/foreground readback and complete obstruction checks must
+still succeed. A rejected request retains the observed foreground HWND/PID and
+remains a failure, even if another activation happens concurrently. No input
+injection, attached input queues or foreground-policy changes are used. The host
+remains the single owned child under the original60-second limit.
+
 The original60-second deadline, whole-image visibility, foreground/window
 ownership, unobstructed desktop capture, exact retained-image comparison and
 original page handlers remain unchanged. Uploaded receipts and native captures

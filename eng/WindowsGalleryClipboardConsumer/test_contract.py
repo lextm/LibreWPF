@@ -175,6 +175,10 @@ class ForegroundTests(unittest.TestCase):
             self.prepare(desktop, record)
         self.assertEqual([7], desktop.u.requests)
         self.assertFalse(record["accepted"])
+        self.assertEqual(7, record["afterRejectedRequest"])
+        # Even a coincident foreground change cannot turn a denied request into
+        # success. Keep the original failure and its diagnostic readback.
+        self.assertEqual(12, record["foregroundPidAfterRejectedRequest"])
 
     @patch.object(probe.time, "sleep")
     @patch.object(probe.time, "monotonic", side_effect=(20, 20, 20.5, 21))

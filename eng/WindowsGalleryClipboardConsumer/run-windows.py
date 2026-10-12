@@ -121,6 +121,11 @@ class Desktop:
         if record["before"] != hwnd:
             record["requested"] = True
             record["accepted"] = bool(self.u.SetForegroundWindow(hwnd))
+            if not record["accepted"]:
+                record["afterRejectedRequest"] = self.u.GetForegroundWindow()
+                owner = W.DWORD()
+                self.u.GetWindowThreadProcessId(record["afterRejectedRequest"], C.byref(owner))
+                record["foregroundPidAfterRejectedRequest"] = owner.value
             require(record["accepted"], "Windows rejected the owned foreground request")
         # Cross-thread activation may finish after SetForegroundWindow returns.
         # Observe it within the original deadline; never attach input queues or
@@ -235,7 +240,13 @@ def main():
     try:
         desktop = Desktop()
         with (args.output / "stdout.log").open("xb") as stdout, (args.output / "stderr.log").open("xb") as stderr:
-            process = subprocess.Popen([str(args.app.resolve()), mode, str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent)
+            # GitHub's background command runner does not own foreground rights.
+            # Give the console diagnostic host its normal new-console startup on
+            # the disposable CI desktop. Actual HWND/PID/foreground readback is
+            # still required; this flag never admits a background capture.
+            creation_flags = subprocess.CREATE_NEW_CONSOLE if args.require_empty_ci_clipboard else 0
+            result["processCreationFlags"] = creation_flags
+            process = subprocess.Popen([str(args.app.resolve()), mode, str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent, creationflags=creation_flags)
             result["pid"] = process.pid
             for phase in ("pasted", "retained"):
                 snapshot_path = args.output / (phase + ".json")
