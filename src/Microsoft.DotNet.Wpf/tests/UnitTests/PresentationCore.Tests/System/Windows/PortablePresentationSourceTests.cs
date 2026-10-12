@@ -1,6 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Windows.Input;
 using System.Windows.Media;
 using ProGPU.Wpf.Interop;
@@ -10,6 +13,135 @@ namespace System.Windows;
 [Collection("Sequential")]
 public class PortablePresentationSourceTests
 {
+    [PortableInputFact]
+    public void HostInputHitQueryUsesSourceHitOverrideAndPreservesCapture()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2, 1.5);
+            var root = new MarginHitElement();
+            source.RootVisual = root;
+            source.SetClientSize(100, 100);
+            IInputElement captured = Mouse.Captured;
+
+            Assert.True(source.TryHitTestInput(10, 10, out bool margin));
+            Assert.False(margin);
+            Assert.True(source.TryHitTestInput(35.25, 45.125, out bool content));
+            Assert.True(content);
+            root.IsEnabled = false;
+            root.Opacity = 0;
+            Assert.True(source.TryHitTestInput(35.25, 45.125, out content));
+            Assert.True(content); // Raw disabled content remains a source hit; opacity is independent.
+            root.IsHitTestVisible = false;
+            Assert.True(source.TryHitTestInput(35.25, 45.125, out content));
+            Assert.False(content);
+            root.IsHitTestVisible = true;
+            root.Visibility = Visibility.Hidden;
+            Assert.True(source.TryHitTestInput(35.25, 45.125, out content));
+            Assert.False(content);
+            Assert.Same(captured, Mouse.Captured);
+        });
+    }
+
+    [PortableInputFact]
+    public void HostInputHitQueryUsesOriginalPresentedOwnerAndHandledMiss()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+            var root = new MarginHitElement();
+            source.RootVisual = root;
+            source.SetClientSize(100, 100);
+            bool hasOwner = true;
+            int queries = 0;
+            source.HitTestAllBufferOverride = (double x, double y, Span<object> owners, out int count) =>
+            {
+                queries++;
+                Assert.Equal((10.25, 11.5), (x, y));
+                count = hasOwner ? 1 : 0;
+                if (hasOwner) owners[0] = root;
+                return true;
+            };
+
+            Assert.True(source.TryHitTestInput(10.25, 11.5, out bool hit));
+            Assert.True(hit);
+            hasOwner = false;
+            Assert.True(source.TryHitTestInput(10.25, 11.5, out hit));
+            Assert.False(hit);
+            Assert.Equal(2, queries);
+            Assert.Equal(0, root.DrawingQueries);
+        });
+    }
+
+    [PortableInputFact]
+    public void HostInputHitQueryRejectsInvalidOrRetiredSourceBeforeCallingItsOwner()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+            source.RootVisual = new MarginHitElement();
+            source.SetClientSize(100, 100);
+            int queries = 0;
+            source.HitTestAllBufferOverride = (double x, double y, Span<object> owners, out int count) =>
+            {
+                queries++;
+                count = 0;
+                return true;
+            };
+            foreach (var point in new[] { (double.NaN, 10.0), (10.0, double.PositiveInfinity), (double.NegativeInfinity, 10.0) })
+            {
+                Assert.False(source.TryHitTestInput(point.Item1, point.Item2, out bool hit));
+                Assert.False(hit);
+            }
+            source.RootVisual = null;
+            Assert.False(source.TryHitTestInput(35, 35, out bool detached));
+            Assert.False(detached);
+            source.Dispose();
+            Assert.False(source.TryHitTestInput(35, 35, out bool disposed));
+            Assert.False(disposed);
+            Assert.Equal(0, queries);
+        });
+    }
+
+    private sealed class PortableInputFactAttribute : FactAttribute
+    {
+        public PortableInputFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input-manager construction, including on Windows.";
+        }
+    }
+
+    private static void RunInUiApartment(Action action)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception exception) { failure = exception; }
+        }) { IsBackground = true };
+        if (OperatingSystem.IsWindows()) thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        if (!thread.Join(TimeSpan.FromSeconds(30))) throw new TimeoutException("Portable input hit fixture timed out.");
+        if (failure != null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private sealed class MarginHitElement : UIElement
+    {
+        internal int DrawingQueries { get; private set; }
+        protected override Size MeasureCore(Size availableSize) => new Size(100, 100);
+        protected override void OnRender(DrawingContext drawingContext) =>
+            drawingContext.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(30, 30, 40, 40));
+        protected override HitTestResult HitTestCore(PointHitTestParameters parameters)
+        {
+            DrawingQueries++;
+            // This source-owned override is authoritative for the control.
+            // The original menu consumer separately exercises real WPF geometry.
+            return new Rect(30, 30, 40, 40).Contains(parameters.HitPoint)
+                ? new PointHitTestResult(this, parameters.HitPoint) : null;
+        }
+    }
+
     [PortableScopeFact]
     public void DefaultAccessKeyScopeRequiresActualActivePortableRoot()
     {

@@ -239,6 +239,30 @@ namespace System.Windows
             return TryUpdateRootVisualClientSize(out width, out height);
         }
 
+        bool IPortablePresentationSourceHost.TryHitTestInput(double x, double y, out bool isHit)
+        {
+            VerifyAccess();
+            isHit = false;
+            if (_isDisposed || _rootVisual is not UIElement root ||
+                !double.IsFinite(x) || !double.IsFinite(y))
+            {
+                return false;
+            }
+
+            // Use the same source callback, visibility/filtering and raw input
+            // promotion as ordinary mouse input. Disabled content still occupies
+            // its hit region; neither opacity nor a layout rectangle substitutes
+            // for source hit geometry.
+            root.InputHitTest(new Point(x, y), out _, out IInputElement rawHit);
+            if (_isDisposed || !ReferenceEquals(_rootVisual, root))
+            {
+                return false;
+            }
+
+            isHit = rawHit != null;
+            return true;
+        }
+
         bool IPortablePresentationSourceHost.DispatchHwndSourceHook(int message, IntPtr wParam, IntPtr lParam, out IntPtr result, out bool handled)
         {
             if (_isDisposed || _portableHwndSource == null)
