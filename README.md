@@ -9,6 +9,10 @@ compatibility projects. Portable Drawing belongs to LibreWinForms; core renderin
 belongs to ProGPU. See [framework source ownership](docs/framework-source-ownership.md)
 for source paths, exact dependency pins and unchanged package identities.
 
+Full WPF application NativeAOT, native accessibility and portable printing remain
+unfinished. See the [current support boundaries and delivery gates](docs/nativeaot-accessibility-printing.md)
+before relying on those capabilities.
+
 Current focus areas:
 
 - Reuse WPF managed code for application model, dependency properties, layout, controls, data binding, documents, XAML, resources, themes, and the XAML compiler.
