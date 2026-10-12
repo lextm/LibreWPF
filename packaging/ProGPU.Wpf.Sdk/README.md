@@ -6,6 +6,13 @@ This initial package skeleton layers on the existing WindowsDesktop SDK so WPF m
 
 Package mode is the intended delivery path. It references the ported managed WPF bundle through `ProGpuWpfManagedPackageId`/`ProGpuWpfManagedPackageVersion`, references the ProGPU runtime packages, injects portable activation on non-Windows hosts and for explicit native MIL selection on Windows, and copies resolved managed and native runtime assets to the application output. Local-artifact mode remains available for source-tree validation by setting `ProGpuWpfManagedReferenceRoot` and `ProGpuReferenceRoot`.
 
+An explicit Windows `RuntimeIdentifier` uses Windows system libraries even when
+the application is built on macOS or Linux. The SDK does not compile or copy the
+build host's Win32 compatibility shims into that output. Clean output directories
+created by an older SDK before rebuilding a Windows target. Ordinary portable
+macOS/Linux apps still receive their native compatibility library, including apps
+whose managed target framework is `net10.0-windows`.
+
 For mutable development package versions such as `0.1.0-preview.67`, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
 
 The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the real managed WPF assembly identities and runtime payload, while `LibreWPF.ProGPU` is the adapter/runtime bridge package and does not publish dependencies on the ProGPU shim `PresentationCore` package.
