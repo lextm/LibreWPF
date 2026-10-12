@@ -137,6 +137,7 @@ public sealed class WpfManagedProjectGraphTests
             "run: bash ./eng/progpu-wpf-messagebox-modal.sh",
             "run: bash ./eng/progpu-wpf-input-modifiers-source.sh",
             "run: bash ./eng/progpu-wpf-cjk-fallback-source.sh",
+            "run: bash ./eng/progpu-wpf-text-properties-source.sh",
             "run: bash ./eng/progpu-wpf-shader-effect-source.sh",
             "run: bash ./eng/progpu-wpf-display-source.sh",
             "run: bash ./eng/progpu-wpf-pointer-ownership-source.sh",
@@ -165,6 +166,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("if:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("continue-on-error:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/download-artifact", job, StringComparison.Ordinal);
+        string textPropertiesRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-text-properties-source.sh"));
+        Assert.Contains("--filter-class System.Windows.Media.PortableTextLineTests", textPropertiesRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 110 --fail-skips on --timeout 60s", textPropertiesRunner, StringComparison.Ordinal);
+        Assert.Contains("--filter-class MS.Internal.FontCache.Tests.PortableFontFamilyUriTests", textPropertiesRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 15 --fail-skips on --timeout 60s", textPropertiesRunner, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet build", textPropertiesRunner, StringComparison.Ordinal);
         string displayRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-display-source.sh"));
         Assert.Contains("--filter-class System.Windows.Media.PortableDisplayTextSourceTests", displayRunner, StringComparison.Ordinal);
         Assert.Contains("--minimum-expected-tests 13 --fail-skips on --timeout 60s", displayRunner, StringComparison.Ordinal);
