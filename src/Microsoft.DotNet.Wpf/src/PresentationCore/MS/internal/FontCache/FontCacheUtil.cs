@@ -510,8 +510,9 @@ namespace MS.Internal.FontCache
 
         internal static bool IsSupportedSchemeForAbsoluteFontFamilyUri(Uri absoluteUri)
         {
-            // The only absolute URIs we allow in font family references are "file:" URIs.
-            return absoluteUri.IsFile;
+            // Absolute application resources use the same local-resource policy
+            // as a relative font reference resolved against an application base.
+            return IsEnumerableFontUriScheme(absoluteUri);
         }
 
 
@@ -638,10 +639,20 @@ namespace MS.Internal.FontCache
             }
             else
             {
+                if (friendlyName.AsSpan(startIndex, length).StartsWith(ApplicationPackFontUriPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Pack's three authority commas are URI syntax, not escaped
+                    // family-name delimiters. Unescape only the remaining path/name.
+                    int prefixLength = ApplicationPackFontUriPrefix.Length;
+                    string suffix = friendlyName.Substring(startIndex + prefixLength, length - prefixLength).Replace(",,", ",");
+                    return NormalizeFontFamilyReference(string.Concat(friendlyName.AsSpan(startIndex, prefixLength), suffix));
+                }
                 // Unescape commas and then convert to normalized form.
                 return NormalizeFontFamilyReference(friendlyName.Substring(startIndex, length).Replace(",,", ","));
             }
         }
+
+        internal const string ApplicationPackFontUriPrefix = "pack://application:,,,/";
 
         
         /// <summary>

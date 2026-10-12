@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InternalMarkupCompilation>true</InternalMarkupCompilation>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
@@ -13,6 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Medium.ttf" Link="Fonts/Inter-Medium.ttf" />
+    <Resource Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/InterVariable.ttf" Link="Fonts/InterVariable.ttf" />
+    <Content Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/InterVariable.ttf" Link="CollapseFonts/InterVariable.ttf" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Medium.ttf" Link="CollapseFonts/Inter-Medium.ttf" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Bold.ttf" Link="CollapseFonts/Inter-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="$(SystemConfigurationConfigurationManagerPackageVersion)" />
@@ -20,6 +24,7 @@
     <PackageReference Include="$(SystemIOPackagingPackage)" Version="$(SystemIOPackagingVersion)" />
     <PackageReference Include="System.Windows.Extensions" Version="$(SystemWindowsExtensionsPackageVersion)" />
     <ProjectReference Include="..\ProGPU.Wpf\ProGPU.Wpf.csproj" />
+    <ProjectReference Include="..\ProGPU.Wpf.RealXamlCompilerHarness\ProGPU.Wpf.RealXamlCompilerHarness.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />

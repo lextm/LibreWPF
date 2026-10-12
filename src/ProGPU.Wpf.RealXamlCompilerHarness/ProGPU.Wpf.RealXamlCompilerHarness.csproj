@@ -38,6 +38,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Medium.ttf" Link="Fonts/Inter-Medium.ttf" />
+    <Resource Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/InterVariable.ttf" Link="Fonts/InterVariable.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="App.xaml.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="SmokePage.xaml.cs" />

@@ -189,6 +189,9 @@ jobs:
       - name: Validate original Hong Kong composite map precedence
         run: bash ./eng/progpu-wpf-cjk-fallback-source.sh
 
+      - name: Validate source typography and embedded font URI contracts
+        run: bash ./eng/progpu-wpf-text-properties-source.sh
+
       - name: Validate original ShaderEffect source export
         run: bash ./eng/progpu-wpf-shader-effect-source.sh
 

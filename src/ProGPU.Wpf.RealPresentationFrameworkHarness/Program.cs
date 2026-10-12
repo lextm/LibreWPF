@@ -43,6 +43,13 @@ public static class Program
             string presentationFrameworkPath = FindRealAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindRealAssembly(repoRoot, "PresentationCore");
 
+            if (args.Contains("--text-properties-only", StringComparer.Ordinal))
+            {
+                RunNativeMilHostHarness(repoRoot, presentationFrameworkPath, presentationCorePath,
+                    exerciseDeviceRecovery: false, textPropertiesOnly: true);
+                return 0;
+            }
+
             if (args.Contains("--text-wrapping-only", StringComparer.Ordinal))
             {
                 RunTextWrappingHarness(repoRoot, presentationFrameworkPath, presentationCorePath);
@@ -77,7 +84,8 @@ public static class Program
         string repoRoot,
         string presentationFrameworkPath,
         string presentationCorePath,
-        bool exerciseDeviceRecovery)
+        bool exerciseDeviceRecovery,
+        bool textPropertiesOnly = false)
     {
         ProGpuWpfNativeMediaServices.Initialize();
         var loadContext = new WpfAssemblyLoadContext(
@@ -115,6 +123,14 @@ public static class Program
             AssemblyLoadContext.Default.Resolving += ResolveDefaultWpfAssembly;
             try
             {
+                if (textPropertiesOnly)
+                {
+                    Assembly framework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+                    NativeMilTypographySmoke.Run(framework, presentationCore, windowsBase);
+                    NativeMilFontUriSmoke.Run(framework, presentationCore,
+                        loadContext.LoadFromAssemblyPath(FindRealAssembly(repoRoot, "ProGPU.Wpf.RealXamlCompilerHarness")));
+                    return;
+                }
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
                 NativeMilImageBrushSmoke.RunSourceDrawingImage(presentationCore, windowsBase);
                 NativeMilTextCollapseSmoke.Run();
@@ -147,6 +163,9 @@ public static class Program
                 }
 
                 Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+                NativeMilTypographySmoke.Run(presentationFramework, presentationCore, windowsBase);
+                NativeMilFontUriSmoke.Run(presentationFramework, presentationCore,
+                    loadContext.LoadFromAssemblyPath(FindRealAssembly(repoRoot, "ProGPU.Wpf.RealXamlCompilerHarness")));
                 VerifySourceScrollViewerPointPolicy(presentationFramework, presentationCore, windowsBase);
                 NativeMilTextCollapseSmoke.RunSourceHeader(presentationFramework, presentationCore, windowsBase);
                 NativeMilSourceInlineObjectSmoke.Run(presentationFramework, presentationCore, windowsBase);

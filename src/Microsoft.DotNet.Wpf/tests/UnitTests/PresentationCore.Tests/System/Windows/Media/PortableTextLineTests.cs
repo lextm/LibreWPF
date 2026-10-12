@@ -13,6 +13,223 @@ namespace System.Windows.Media;
 [Collection("Sequential")]
 public class PortableTextLineTests
 {
+    [Theory]
+    [InlineData("Capitals", (int)FontCapitals.Normal, "")]
+    [InlineData("Capitals", (int)FontCapitals.SmallCaps, "smcp")]
+    [InlineData("Capitals", (int)FontCapitals.AllSmallCaps, "smcp,c2sc")]
+    [InlineData("Capitals", (int)FontCapitals.PetiteCaps, "pcap")]
+    [InlineData("Capitals", (int)FontCapitals.AllPetiteCaps, "pcap,c2pc")]
+    [InlineData("Capitals", (int)FontCapitals.Titling, "titl")]
+    [InlineData("Capitals", (int)FontCapitals.Unicase, "unic")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Normal, "")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Simplified, "smpl")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Traditional, "trad")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.TraditionalNames, "tnam")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.NlcKanji, "nlck")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.HojoKanji, "hojo")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Jis78, "jp78")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Jis83, "jp83")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Jis90, "jp90")]
+    [InlineData("EastAsianLanguage", (int)FontEastAsianLanguage.Jis04, "jp04")]
+    [InlineData("Fraction", (int)FontFraction.Normal, "")]
+    [InlineData("Fraction", (int)FontFraction.Stacked, "afrc")]
+    [InlineData("Fraction", (int)FontFraction.Slashed, "frac")]
+    [InlineData("NumeralAlignment", (int)FontNumeralAlignment.Normal, "")]
+    [InlineData("NumeralAlignment", (int)FontNumeralAlignment.Proportional, "pnum")]
+    [InlineData("NumeralAlignment", (int)FontNumeralAlignment.Tabular, "tnum")]
+    [InlineData("NumeralStyle", (int)FontNumeralStyle.Normal, "")]
+    [InlineData("NumeralStyle", (int)FontNumeralStyle.Lining, "lnum")]
+    [InlineData("NumeralStyle", (int)FontNumeralStyle.OldStyle, "onum")]
+    [InlineData("Variants", (int)FontVariants.Normal, "")]
+    [InlineData("Variants", (int)FontVariants.Inferior, "sinf")]
+    [InlineData("Variants", (int)FontVariants.Ordinal, "ordn")]
+    [InlineData("Variants", (int)FontVariants.Ruby, "ruby")]
+    [InlineData("Variants", (int)FontVariants.Subscript, "subs")]
+    [InlineData("Variants", (int)FontVariants.Superscript, "sups")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Normal, "")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Proportional, "pwid,palt")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Full, "fwid")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Half, "hwid,halt")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Third, "twid")]
+    [InlineData("EastAsianWidths", (int)FontEastAsianWidths.Quarter, "qwid")]
+    public void TypographyEnumsReachTheOriginalNativeStyleRequest(string property, int value, string expectedTags)
+    {
+        TypographyValues typography = property switch
+        {
+            "Capitals" => new TypographyValues(capitals: (FontCapitals)value),
+            "EastAsianLanguage" => new TypographyValues(eastAsianLanguage: (FontEastAsianLanguage)value),
+            "Fraction" => new TypographyValues(fraction: (FontFraction)value),
+            "NumeralAlignment" => new TypographyValues(numeralAlignment: (FontNumeralAlignment)value),
+            "NumeralStyle" => new TypographyValues(numeralStyle: (FontNumeralStyle)value),
+            "Variants" => new TypographyValues(variants: (FontVariants)value),
+            "EastAsianWidths" => new TypographyValues(eastAsianWidths: (FontEastAsianWidths)value),
+            _ => throw new ArgumentException("Unknown typography property.", nameof(property))
+        };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source { Properties = new Properties(DigitFontFamily()) { Typography = typography } };
+        using TextLine line = formatter.FormatLine(source, 0, 100,
+            new ParagraphProperties(source.Properties, false), null, new TextRunCache());
+
+        Assert.Equal("abc", provider.Text);
+        var style = Assert.Single(provider.Styles.ToArray());
+        Assert.Equal(0, style.Start);
+        Assert.Equal(3, style.Length);
+        var features = style.Features.ToArray();
+        Assert.Equal(features.Length, features.Select(feature => feature.Tag).Distinct().Count());
+        Assert.Equal(expectedTags.Split(',', StringSplitOptions.RemoveEmptyEntries),
+            features.Skip(32).Select(feature => FeatureTag(feature.Tag)));
+        Assert.All(features.Skip(32), feature => Assert.Equal(1U, feature.Value));
+        Assert.Equal(1U, features.Single(feature => FeatureTag(feature.Tag) == "kern").Value);
+        Assert.Equal(0U, features.Single(feature => FeatureTag(feature.Tag) == "dlig").Value);
+    }
+
+    [PortableMediaFact]
+    public void TypographyNumericAlternatesKeepExactValuesAtTheMaximumFeatureCount()
+    {
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source
+        {
+            Properties = new Properties(DigitFontFamily())
+            {
+                Typography = new TypographyValues(capitals: FontCapitals.AllSmallCaps,
+                    eastAsianLanguage: FontEastAsianLanguage.Jis04, fraction: FontFraction.Slashed,
+                    numeralAlignment: FontNumeralAlignment.Tabular, numeralStyle: FontNumeralStyle.OldStyle,
+                    variants: FontVariants.Superscript, eastAsianWidths: FontEastAsianWidths.Half,
+                    annotationAlternates: int.MaxValue, contextualSwashes: 3, stylisticAlternates: 5, standardSwashes: 7)
+            }
+        };
+        using TextLine line = formatter.FormatLine(source, 0, 100,
+            new ParagraphProperties(source.Properties, false), null, new TextRunCache());
+        var features = Assert.Single(provider.Styles.ToArray()).Features.ToArray()
+            .ToDictionary(feature => FeatureTag(feature.Tag), feature => feature.Value);
+        Assert.Equal(45, features.Count);
+        Assert.Equal((uint)int.MaxValue, features["nalt"]);
+        Assert.Equal(3U, features["cswh"]);
+        Assert.Equal(5U, features["salt"]);
+        Assert.Equal(7U, features["swsh"]);
+    }
+
+    [PortableMediaFact]
+    public void TypographyNormalRunDoesNotInheritParagraphOrPreviousRunAlternates()
+    {
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source
+        {
+            Mixed = true,
+            Properties = new Properties(DigitFontFamily())
+            {
+                Typography = new TypographyValues(capitals: FontCapitals.AllSmallCaps,
+                    numeralAlignment: FontNumeralAlignment.Tabular)
+            },
+            FollowingProperties = new Properties(DigitFontFamily()) { Typography = new TypographyValues() }
+        };
+        using TextLine line = formatter.FormatLine(source, 0, 100,
+            new ParagraphProperties(source.Properties, false, false), null, new TextRunCache());
+        Assert.Equal("abc", provider.Text);
+        Assert.Equal(2, provider.Styles.Length);
+        var first = provider.Styles.Span[0];
+        var normal = provider.Styles.Span[1];
+        Assert.Equal((0, 1), (first.Start, first.Length));
+        Assert.Equal((1, 2), (normal.Start, normal.Length));
+        Assert.Equal(new[] { "smcp", "c2sc", "tnum" },
+            first.Features.ToArray().Skip(32).Select(feature => FeatureTag(feature.Tag)));
+        Assert.Equal(32, normal.Features.Length);
+        Assert.Equal(3, line.Length - line.NewlineLength);
+        Assert.Equal(new[] { 0, 1 }, line.GetIndexedGlyphRuns().Select(run => run.TextSourceCharacterIndex));
+        Assert.Equal(16, line.Width);
+    }
+
+    [PortableMediaFact]
+    public void TypographyInvalidValuesFailBeforePublishingANativeParagraph()
+    {
+        TypographyValues[] invalid =
+        [
+            new(capitals: (FontCapitals)(-1)), new(eastAsianLanguage: (FontEastAsianLanguage)99),
+            new(fraction: (FontFraction)99), new(numeralAlignment: (FontNumeralAlignment)99),
+            new(numeralStyle: (FontNumeralStyle)99), new(variants: (FontVariants)99),
+            new(eastAsianWidths: (FontEastAsianWidths)99), new(annotationAlternates: -1),
+            new(contextualSwashes: -1), new(stylisticAlternates: -1), new(standardSwashes: -1)
+        ];
+        foreach (var typography in invalid)
+        {
+            var provider = new Provider();
+            using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+            using var formatter = new TextFormatterImp();
+            var source = new Source { Properties = new Properties(DigitFontFamily()) { Typography = typography } };
+            Assert.Throws<PlatformNotSupportedException>(() => formatter.FormatLine(source, 0, 100,
+                new ParagraphProperties(source.Properties, false), null, new TextRunCache()));
+            Assert.Equal(0, provider.Calls);
+        }
+    }
+
+    private static string FeatureTag(uint tag) => new(new[]
+        { (char)(tag >> 24), (char)((tag >> 16) & 255), (char)((tag >> 8) & 255), (char)(tag & 255) });
+
+    // Captures the actual source formatting request; it is not native shaping or pixel evidence.
+    private sealed class TypographyValues(
+        FontCapitals capitals = FontCapitals.Normal,
+        FontEastAsianLanguage eastAsianLanguage = FontEastAsianLanguage.Normal,
+        FontFraction fraction = FontFraction.Normal,
+        FontNumeralAlignment numeralAlignment = FontNumeralAlignment.Normal,
+        FontNumeralStyle numeralStyle = FontNumeralStyle.Normal,
+        FontVariants variants = FontVariants.Normal,
+        FontEastAsianWidths eastAsianWidths = FontEastAsianWidths.Normal,
+        int annotationAlternates = 0,
+        int contextualSwashes = 0,
+        int stylisticAlternates = 0,
+        int standardSwashes = 0) : TextRunTypographyProperties
+    {
+        public override bool StandardLigatures => true;
+        public override bool ContextualLigatures => true;
+        public override bool DiscretionaryLigatures => false;
+        public override bool HistoricalLigatures => false;
+        public override bool ContextualAlternates => true;
+        public override bool HistoricalForms => false;
+        public override bool Kerning => true;
+        public override bool CapitalSpacing => false;
+        public override bool CaseSensitiveForms => false;
+        public override bool StylisticSet1 => false;
+        public override bool StylisticSet2 => false;
+        public override bool StylisticSet3 => false;
+        public override bool StylisticSet4 => false;
+        public override bool StylisticSet5 => false;
+        public override bool StylisticSet6 => false;
+        public override bool StylisticSet7 => false;
+        public override bool StylisticSet8 => false;
+        public override bool StylisticSet9 => false;
+        public override bool StylisticSet10 => false;
+        public override bool StylisticSet11 => false;
+        public override bool StylisticSet12 => false;
+        public override bool StylisticSet13 => false;
+        public override bool StylisticSet14 => false;
+        public override bool StylisticSet15 => false;
+        public override bool StylisticSet16 => false;
+        public override bool StylisticSet17 => false;
+        public override bool StylisticSet18 => false;
+        public override bool StylisticSet19 => false;
+        public override bool StylisticSet20 => false;
+        public override bool SlashedZero => false;
+        public override bool MathematicalGreek => false;
+        public override bool EastAsianExpertForms => false;
+        public override FontCapitals Capitals => capitals;
+        public override FontEastAsianLanguage EastAsianLanguage => eastAsianLanguage;
+        public override FontFraction Fraction => fraction;
+        public override FontNumeralAlignment NumeralAlignment => numeralAlignment;
+        public override FontNumeralStyle NumeralStyle => numeralStyle;
+        public override FontVariants Variants => variants;
+        public override FontEastAsianWidths EastAsianWidths => eastAsianWidths;
+        public override int AnnotationAlternates => annotationAlternates;
+        public override int ContextualSwashes => contextualSwashes;
+        public override int StylisticAlternates => stylisticAlternates;
+        public override int StandardSwashes => standardSwashes;
+    }
+
     [PortableMediaFact]
     public void PublicGlyphRunsProjectDirectionWithoutMergingDifferentEmbeddingLevels()
     {
@@ -1623,6 +1840,7 @@ public class PortableTextLineTests
         internal TextDecorationCollection? Decorations { get; init; }
         internal CultureInfo Culture { get; init; } = CultureInfo.InvariantCulture;
         internal NumberSubstitution? Numbers { get; init; }
+        internal TextRunTypographyProperties? Typography { get; init; }
         internal double Size { get; init; } = 12;
         internal Properties(FontFamily? family = null)
         {
@@ -1638,6 +1856,7 @@ public class PortableTextLineTests
         public override Brush BackgroundBrush => Size == 24 ? Brushes.Blue : null!;
         public override CultureInfo CultureInfo => Culture;
         public override NumberSubstitution NumberSubstitution => Numbers!;
+        public override TextRunTypographyProperties TypographyProperties => Typography!;
         public override TextEffectCollection TextEffects => null!;
     }
 
