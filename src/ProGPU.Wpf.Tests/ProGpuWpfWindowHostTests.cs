@@ -3391,6 +3391,112 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Equal(5, activationService.LastPresentationSourceInput.Y);
     }
 
+    [Theory]
+    [InlineData(WpfInputEventKind.MouseDown)]
+    [InlineData(WpfInputEventKind.MouseUp)]
+    [InlineData(WpfInputEventKind.MouseMove)]
+    [InlineData(WpfInputEventKind.MouseWheel)]
+    public void TransparentPopupMissLeavesOwnerInputUnchanged(WpfInputEventKind kind)
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var popup = new FakePortablePresentationSource { InputHitTest = (_, _) => false };
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(host.UpdatePortablePresentationSourceDpiScale(2, 1.5));
+        Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(null, owner, owner.Handle, 40, 45, true, false), out var source));
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+        Assert.True(host.TryShowPortablePopup(source!));
+        var input = new WpfInputEventArgs(kind, x: 25.125, y: 35.25, button: WpfMouseButton.Left);
+
+        Assert.False(host.TryProcessPortablePopupInput(input));
+        Assert.Equal((5.125, 5.25), popup.LastInputHitTestPoint);
+        Assert.Equal(1, popup.InputHitTestCount);
+        Assert.Equal(0, activation.PresentationSourceInputCount);
+        Assert.False(input.Handled);
+        Assert.Equal((25.125, 35.25), (input.X, input.Y));
+    }
+
+    [Fact]
+    public void TransparentPopupMissCanReachTheNextPopupWithAnActualHit()
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var lower = new FakePortablePresentationSource();
+        var upper = new FakePortablePresentationSource { InputHitTest = (_, _) => false };
+        int created = 0;
+        using var factory = UsePortablePopupSourceFactory(() => created++ == 0 ? lower : upper);
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        foreach (var expected in new[] { lower, upper })
+        {
+            Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(null, owner, owner.Handle, 20, 30, true, false), out var source));
+            Assert.Same(expected, source);
+            Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+            Assert.True(host.TryShowPortablePopup(source!));
+        }
+        var input = new WpfInputEventArgs(WpfInputEventKind.MouseUp, x: 25, y: 35, button: WpfMouseButton.Left);
+
+        Assert.True(host.TryProcessPortablePopupInput(input));
+        Assert.Same(lower, activation.LastPresentationSourceInputSource);
+        Assert.Equal(1, upper.InputHitTestCount);
+        Assert.Equal(1, lower.InputHitTestCount);
+        Assert.Equal(1, activation.PresentationSourceInputCount);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void TransparentPopupRequiresAvailableHitQueryButOpaquePopupRetainsItsSurface(bool transparent, bool expectedRoute)
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var popup = new FakePortablePresentationSource { InputHitTestAvailable = false };
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(null, owner, owner.Handle, 20, 30, transparent, false), out var source));
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+        Assert.True(host.TryShowPortablePopup(source!));
+        var input = new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 25, y: 35, button: WpfMouseButton.Left);
+
+        Assert.Equal(expectedRoute, host.TryProcessPortablePopupInput(input));
+        Assert.Equal(transparent ? 1 : 0, popup.InputHitTestCount);
+        Assert.Equal(expectedRoute ? 1 : 0, activation.PresentationSourceInputCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TransparentPopupHiddenDuringHitQueryDoesNotReceiveTheOriginalInput(bool reopen)
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var popup = new FakePortablePresentationSource();
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(null, owner, owner.Handle, 20, 30, true, false), out var source));
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+        Assert.True(host.TryShowPortablePopup(source!));
+        popup.InputHitTest = (_, _) =>
+        {
+            host.TryHidePortablePopup(source!);
+            if (reopen) host.TryShowPortablePopup(source!);
+            return true;
+        };
+        var input = new WpfInputEventArgs(WpfInputEventKind.MouseUp, x: 25, y: 35, button: WpfMouseButton.Left);
+
+        Assert.False(host.TryProcessPortablePopupInput(input));
+        Assert.Equal(0, activation.PresentationSourceInputCount);
+        Assert.False(input.Handled);
+    }
+
     [Fact]
     public void PortablePopupTracksOwnerDpiChangesAndPreservesLogicalOrigin()
     {
@@ -4508,6 +4614,19 @@ public sealed partial class ProGpuWpfWindowHostTests
     private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost, IPortableDesktopGeometryHost
     {
         private object? _rootVisual;
+
+        internal Func<double, double, bool>? InputHitTest { get; set; }
+        internal bool InputHitTestAvailable { get; set; } = true;
+        internal int InputHitTestCount { get; private set; }
+        internal (double X, double Y) LastInputHitTestPoint { get; private set; }
+
+        public bool TryHitTestInput(double x, double y, out bool isHit)
+        {
+            InputHitTestCount++;
+            LastInputHitTestPoint = (x, y);
+            isHit = InputHitTestAvailable && (InputHitTest?.Invoke(x, y) ?? true);
+            return InputHitTestAvailable;
+        }
 
         public event EventHandler? RenderRequested;
 

@@ -28,3 +28,7 @@ export LIBREWPF_TEST_MEDIA_BACKEND=Portable
   --filter-class System.Windows.Input.PortableInputOwnershipTests \
   --filter-method '*PointerSource*' \
   --minimum-expected-tests 3 --fail-skips on --timeout 60s --no-progress
+"${dotnet_command}" "${core_assembly}" \
+  --filter-class System.Windows.PortablePresentationSourceTests \
+  --filter-method '*HostInputHitQuery*' \
+  --minimum-expected-tests 3 --fail-skips on --timeout 60s --no-progress

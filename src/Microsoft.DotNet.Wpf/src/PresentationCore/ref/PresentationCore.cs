@@ -1167,6 +1167,7 @@ namespace System.Windows
         void SetClientOrigin(double x, double y) { }
         void SetClientSize(double width, double height);
         void SetDeviceScale(double dpiScaleX, double dpiScaleY);
+        bool TryHitTestInput(double x, double y, out bool isHit) { throw null; }
         bool TryUpdateRootVisualClientSize(out double width, out double height);
     }
     public partial interface IPortableVisualOwnerHost
