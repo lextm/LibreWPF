@@ -14,10 +14,16 @@ internal static class GalleryClipboardApp
     [DllImport("user32.dll")] private static extern bool OpenClipboard(nint owner);
     [DllImport("user32.dll")] private static extern bool CloseClipboard();
     [DllImport("user32.dll", SetLastError = true)] private static extern int CountClipboardFormats();
+    [DllImport("user32.dll")] private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(nint hwnd);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(nint hwnd);
+    [DllImport("user32.dll")] private static extern bool IsIconic(nint hwnd);
 
     [STAThread]
     private static int Main(string[] args)
     {
+        Stopwatch clock = Stopwatch.StartNew();
         if (!OperatingSystem.IsWindows() || args.Length != 2 ||
             (args[0] != "--allow-replace-clipboard" && args[0] != "--require-empty-ci-clipboard"))
             throw new InvalidOperationException("Actual Windows and explicit permission to replace existing clipboard contents are required; there is no all-format restore claim.");
@@ -52,7 +58,6 @@ internal static class GalleryClipboardApp
             application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(resource, UriKind.RelativeOrAbsolute) });
         ClipboardPage page = new(new ClipboardPageViewModel());
         Window window = new() { Title = "Gallery clipboard image qualification", Width = 900, Height = 900, Content = page };
-        Stopwatch clock = Stopwatch.StartNew();
         int phase = 0;
         long afterFrame = -1;
         long beforeScene = -1, beforeRetained = -1, beforeFlat = -1;
@@ -64,6 +69,24 @@ internal static class GalleryClipboardApp
         DispatcherTimer timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(25) };
 
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        void PrepareForeground(nint hwnd)
+        {
+            Require(GetWindowThreadProcessId(hwnd, out uint owner) != 0 && owner == Environment.ProcessId,
+                "Foreground target does not belong to the original Gallery process.");
+            Require(IsWindowVisible(hwnd) && !IsIconic(hwnd), "Foreground target is hidden or minimized.");
+            Require(clock.Elapsed.TotalSeconds < 55, "Original host budget exhausted before foreground setup.");
+            nint before = GetForegroundWindow();
+            bool requested = before != hwnd;
+            bool accepted = !requested || SetForegroundWindow(hwnd);
+            nint after = GetForegroundWindow();
+            GetWindowThreadProcessId(after, out uint foregroundPid);
+            Save(output, "activation.json", new {
+                pid = Environment.ProcessId, hwnd = hwnd.ToInt64(), before = before.ToInt64(), requested,
+                accepted, after = after.ToInt64(), foregroundPid, elapsed = clock.Elapsed.TotalSeconds,
+                caller = "owned Gallery application thread", requestCount = requested ? 1 : 0 });
+            Require(accepted, "Windows rejected the Gallery application's foreground request.");
+            Require(after == hwnd, "The Gallery application did not become foreground.");
+        }
         Image NamedImage(string name) => page.FindName(name) as Image ?? throw new InvalidOperationException("Missing original image " + name);
         void Verify(BitmapSource image)
         {
@@ -94,6 +117,7 @@ internal static class GalleryClipboardApp
                 Require(host.NativeWindowHandle.Kind == global::ProGPU.Backend.NativeWindowKind.Win32 && host.NativeWindowHandle.IsValid, "No real owned Win32 window.");
                 if (phase == 0)
                 {
+                    PrepareForeground(host.NativeWindowHandle.Handle);
                     var initialFrame = host.LastPresentedFrameState;
                     beforeScene = initialFrame.SceneChangeVersion;
                     beforeRetained = initialFrame.RetainedWpfChangeVersion;

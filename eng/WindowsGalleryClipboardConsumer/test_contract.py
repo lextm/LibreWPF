@@ -138,6 +138,34 @@ class ForegroundTests(unittest.TestCase):
     def prepare(self, desktop, record, snapshot=None, deadline=100):
         desktop.prepare_foreground(snapshot or {"hwnd": 7, "pid": 12}, 12, deadline, record)
 
+    def host_activation(self):
+        return {"pid": 12, "hwnd": 7, "before": 9, "requested": True,
+                "accepted": True, "after": 7, "foregroundPid": 12, "requestCount": 1}
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_host_activation_never_adds_a_driver_request(self, _):
+        desktop = self.desktop(foreground=(7, 7)); record = {}
+        desktop.prepare_foreground({"hwnd": 7, "pid": 12}, 12, 100, record, self.host_activation())
+        self.assertEqual([], desktop.u.requests)
+        self.assertEqual(7, record["after"])
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_rejected_or_foreign_host_receipt_cannot_use_coincident_foreground(self, _):
+        for key, value in (("pid", 13), ("hwnd", 8), ("accepted", False), ("after", 9),
+                           ("foregroundPid", 13), ("requestCount", 2), ("requested", False)):
+            receipt = self.host_activation(); receipt[key] = value
+            desktop = self.desktop(foreground=(7, 7))
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                desktop.prepare_foreground({"hwnd": 7, "pid": 12}, 12, 100, {}, receipt)
+            self.assertEqual([], desktop.u.requests)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_foreground_lost_after_host_receipt_does_not_trigger_a_second_request(self, _):
+        desktop = self.desktop(foreground=(9, 9))
+        with self.assertRaisesRegex(RuntimeError, "lost foreground"):
+            desktop.prepare_foreground({"hwnd": 7, "pid": 12}, 12, 100, {}, self.host_activation())
+        self.assertEqual([], desktop.u.requests)
+
     @patch.object(probe.time, "monotonic", return_value=20)
     def test_already_foreground_does_not_request_activation(self, _):
         desktop = self.desktop(foreground=(7, 7)); record = {}

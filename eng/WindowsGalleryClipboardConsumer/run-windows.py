@@ -112,12 +112,30 @@ class Desktop:
         require(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd) and not self.u.IsIconic(hwnd), "owned window is not live/visible")
         require(self.u.GetWindowThreadProcessId(hwnd, C.byref(owner)) and owner.value == pid, "window PID mismatch")
 
-    def prepare_foreground(self, snapshot, pid, deadline, record):
+    def prepare_foreground(self, snapshot, pid, deadline, record, host_activation=None):
         require(snapshot["pid"] == pid, "foreground snapshot PID mismatch")
         hwnd = snapshot["hwnd"]
         self.owned_window(hwnd, pid)
         require(time.monotonic() < deadline - 2, "original60-second run budget exhausted before activation")
         record.update(hwnd=hwnd, pid=pid, before=self.u.GetForegroundWindow(), requested=False)
+        if host_activation is not None:
+            # The application owns the sole request. A background capture driver
+            # cannot inherit foreground permission from the child's new console.
+            record["hostActivation"] = host_activation
+            require(host_activation.get("pid") == pid and host_activation.get("hwnd") == hwnd,
+                    "host activation identity mismatch")
+            require(host_activation.get("accepted") is True and host_activation.get("after") == hwnd
+                    and host_activation.get("foregroundPid") == pid,
+                    "host activation was rejected or did not establish foreground")
+            requested = host_activation.get("requested")
+            require(isinstance(requested, bool) and requested == (host_activation.get("before") != hwnd)
+                    and host_activation.get("requestCount") == int(requested),
+                    "host activation request identity mismatch")
+            record["after"] = self.u.GetForegroundWindow()
+            self.owned_window(hwnd, pid)
+            require(record["before"] == hwnd and record["after"] == hwnd,
+                    "owned window lost foreground after host activation")
+            return
         if record["before"] != hwnd:
             record["requested"] = True
             record["accepted"] = bool(self.u.SetForegroundWindow(hwnd))
@@ -258,7 +276,10 @@ def main():
                 require(process.poll() is None, "host lifetime ended before capture")
                 if phase == "pasted":
                     result["foregroundSetup"] = {}
-                    desktop.prepare_foreground(snapshot, process.pid, deadline, result["foregroundSetup"])
+                    activation = read_json(args.output / "activation.json")
+                    require(isinstance(activation, dict), "host activation receipt is missing")
+                    desktop.prepare_foreground(snapshot, process.pid, deadline, result["foregroundSetup"],
+                                               activation)
                 capture = desktop.capture(snapshot, process.pid, args.output / (phase + ".bmp"))
                 require(process.poll() is None and time.monotonic() < deadline - 2, "host lifetime/deadline changed during capture")
                 capture["phase"] = phase; capture["snapshot"] = snapshot

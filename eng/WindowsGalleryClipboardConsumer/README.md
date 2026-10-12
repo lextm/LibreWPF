@@ -85,10 +85,13 @@ does not authorize replacing a local or self-hosted machine's clipboard.
 The private diagnostic host uses console output type with WinExe inference
 disabled. Only the disposable CI mode launches it with `CREATE_NEW_CONSOLE`,
 giving it normal console startup instead of inheriting the background runner's
-console. This does not grant capture admission: the existing single foreground
-request, actual HWND/PID/foreground readback and complete obstruction checks must
-still succeed. A rejected request retains the observed foreground HWND/PID and
-remains a failure, even if another activation happens concurrently. No input
+console. This does not grant capture admission. The Gallery application makes
+the single ordinary foreground request from its own thread after its first actual
+frame and before touching the clipboard. `activation.json` retains the request
+and native HWND/PID/foreground readback. The capture driver requires that receipt
+and the same live foreground window; it never adds another request after the
+application's attempt. A rejected request remains a failure, even if another
+activation happens concurrently. No input
 injection, attached input queues or foreground-policy changes are used. The host
 remains the single owned child under the original60-second limit.
 
@@ -103,12 +106,13 @@ by the actual physical monitors before and after BitBlt. A monitor bounding box
 cannot hide an off-screen region or a gap between displays; changing monitor
 geometry during the capture fails explicitly.
 
-Before the first capture the driver validates the live, visible HWND against its
-launched PID and makes at most one ordinary
+Before the original clipboard action the application validates its visible HWND
+against its own PID and makes at most one ordinary
 [SetForegroundWindow request](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
-if that window is not already foreground. It records the request and observes
-the actual foreground HWND for at most one second inside the original60-second
-deadline. Rejection, changed ownership or failure to become foreground fails the
+if that window is not already foreground. It records the result and reads back
+the actual foreground HWND on the calling application thread. The host clock now
+starts at Main entry, including application/resource construction in its original
+57-second reserve. Rejection, changed ownership or failure to become foreground fails the
 run; no input-queue attachment, desktop-policy change or synthetic input is used.
 Both captures still require the exact foreground HWND before and after capture,
 and the second phase cannot request activation again. On a capture failure the
@@ -156,9 +160,10 @@ of every intervening obstruction.
 
 ## Authored checks and current status
 
-The current twenty-three offline admission tests pass, including the original
-seventeen controls, all three required bootstrap jobs, empty-CI clipboard
-selection and complete physical-monitor coverage. The updated C# host also
+The current thirty-four offline admission tests pass, including the original
+controls, all three required bootstrap jobs, empty-CI clipboard selection,
+physical-monitor coverage and rejected/foreign/lost host foreground receipts.
+The updated C# host also
 compiled against a retained whole-qualified producer with zero errors and six
 original-source nullable warnings. These checks do not execute the application
 or qualify clipboard or desktop behavior. The opt-in CI workflow still requires
