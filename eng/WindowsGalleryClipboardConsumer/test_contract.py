@@ -75,6 +75,24 @@ class AdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "entire"):
             probe.admitted_crop(value, 12, (-500, 20, 400, 300))
 
+    def test_physical_monitor_coverage_handles_negative_origin_and_adjoining_displays(self):
+        probe.require_monitor_coverage((-480, 60, -282, 258), [(-500, 0, 0, 300)])
+        probe.require_monitor_coverage((-100, 20, 100, 220), [(-500, 0, 0, 300), (0, 0, 500, 300)])
+
+    def test_monitor_bounding_box_cannot_hide_a_gap_or_offscreen_pixels(self):
+        for crop, monitors in (
+            ((-100, 20, 100, 220), [(-500, 0, 0, 300), (1, 0, 500, 300)]),
+            ((0, -1, 100, 220), [(0, 0, 500, 300)]),
+            ((400, 20, 501, 220), [(0, 0, 500, 300)]),
+        ):
+            with self.subTest(crop=crop, monitors=monitors), self.assertRaisesRegex(RuntimeError, "entire image capture"):
+                probe.require_monitor_coverage(crop, monitors)
+
+    def test_empty_excessive_or_degenerate_monitor_inventory_rejected(self):
+        for monitors in ([], [(0, 0, 100, 100)] * 17, [(0, 0, 0, 100)]):
+            with self.subTest(monitors=monitors), self.assertRaises(RuntimeError):
+                probe.require_monitor_coverage((0, 0, 50, 50), monitors)
+
     def test_original_manifest_includes_source_asset_and_license(self):
         value = json.loads((ROOT / "source-manifest.json").read_text())
         self.assertEqual("811d01e95c8c929e68539d698d0a0609e94fd185", value["commit"])

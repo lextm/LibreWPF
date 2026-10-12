@@ -88,6 +88,10 @@ original page handlers remain unchanged. Uploaded receipts and native captures
 still require manual review against the original PNG. A completed probe keeps
 `qualified:false`; routed button events do not establish native-pointer input
 qualification. An unavailable desktop or changed clipboard fails the run.
+Capture admission additionally proves the complete image rectangle is covered
+by the actual physical monitors before and after BitBlt. A monitor bounding box
+cannot hide an off-screen region or a gap between displays; changing monitor
+geometry during the capture fails explicitly.
 
 ## Later execution requires explicit coordination and clipboard permission
 
