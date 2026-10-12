@@ -17,9 +17,30 @@ def load(name, file):
 
 prepare = load("gallery_prepare", "prepare.py")
 probe = load("gallery_probe", "run-windows.py")
+prepare_ci = load("gallery_prepare_ci", "prepare-ci.py")
 
 
 class AdmissionTests(unittest.TestCase):
+    def test_manual_clipboard_replacement_still_requires_explicit_selection(self):
+        self.assertEqual("--allow-replace-clipboard", probe.clipboard_mode(True, False, {}))
+        for allow, empty in ((False, False), (True, True)):
+            with self.subTest(allow=allow, empty=empty), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(allow, empty, {})
+
+    def test_empty_ci_mode_rejects_local_self_hosted_and_foreign_runners(self):
+        environment = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted",
+                       "RUNNER_OS": "Windows", "GITHUB_REPOSITORY": "wieslawsoltes/LibreWPF"}
+        self.assertEqual("--require-empty-ci-clipboard", probe.clipboard_mode(False, True, environment))
+        for key in environment:
+            changed = dict(environment); changed.pop(key)
+            with self.subTest(missing=key), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(False, True, changed)
+        for key, value in (("RUNNER_ENVIRONMENT", "self-hosted"), ("RUNNER_OS", "Linux"),
+                           ("GITHUB_REPOSITORY", "another/repository")):
+            changed = dict(environment); changed[key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(False, True, changed)
+
     def snapshot(self):
         return {"pid": 12, "frame": 2, "client": [-500, 20, 400, 300], "image": [-480, 60, 198, 198]}
 
@@ -53,6 +74,24 @@ class AdmissionTests(unittest.TestCase):
         value = self.snapshot(); value["image"][2] = 0
         with self.assertRaisesRegex(RuntimeError, "entire"):
             probe.admitted_crop(value, 12, (-500, 20, 400, 300))
+
+    def test_physical_monitor_coverage_handles_negative_origin_and_adjoining_displays(self):
+        probe.require_monitor_coverage((-480, 60, -282, 258), [(-500, 0, 0, 300)])
+        probe.require_monitor_coverage((-100, 20, 100, 220), [(-500, 0, 0, 300), (0, 0, 500, 300)])
+
+    def test_monitor_bounding_box_cannot_hide_a_gap_or_offscreen_pixels(self):
+        for crop, monitors in (
+            ((-100, 20, 100, 220), [(-500, 0, 0, 300), (1, 0, 500, 300)]),
+            ((0, -1, 100, 220), [(0, 0, 500, 300)]),
+            ((400, 20, 501, 220), [(0, 0, 500, 300)]),
+        ):
+            with self.subTest(crop=crop, monitors=monitors), self.assertRaisesRegex(RuntimeError, "entire image capture"):
+                probe.require_monitor_coverage(crop, monitors)
+
+    def test_empty_excessive_or_degenerate_monitor_inventory_rejected(self):
+        for monitors in ([], [(0, 0, 100, 100)] * 17, [(0, 0, 0, 100)]):
+            with self.subTest(monitors=monitors), self.assertRaises(RuntimeError):
+                probe.require_monitor_coverage((0, 0, 50, 50), monitors)
 
     def test_original_manifest_includes_source_asset_and_license(self):
         value = json.loads((ROOT / "source-manifest.json").read_text())
@@ -95,6 +134,20 @@ class ProducerTests(unittest.TestCase):
 
     def test_whole_exact_producer_required(self):
         self.validate(self.receipts())
+
+    def test_ci_requires_every_current_bootstrap_job_beside_original_inventory(self):
+        receipts = self.receipts()
+        with self.assertRaisesRegex(ValueError, "three current SDK bootstrap"):
+            prepare_ci.validate_ci_producer(*receipts, "1" * 40, 1, 2)
+        bootstrap = [dict(name=name, status="completed", conclusion="success")
+                     for name in sorted(prepare_ci.BOOTSTRAP_JOBS)]
+        receipts[0]["jobs"].extend(bootstrap)
+        prepare_ci.validate_ci_producer(*receipts, "1" * 40, 1, 2)
+        for name in prepare_ci.BOOTSTRAP_JOBS:
+            incomplete = copy.deepcopy(receipts)
+            incomplete[0]["jobs"] = [job for job in incomplete[0]["jobs"] if job["name"] != name]
+            with self.subTest(missing=name), self.assertRaisesRegex(ValueError, "three current SDK bootstrap"):
+                prepare_ci.validate_ci_producer(*incomplete, "1" * 40, 1, 2)
 
     def test_additional_jobs_must_also_succeed(self):
         receipts = self.receipts()

@@ -41,12 +41,34 @@ def admitted_crop(snapshot, pid, native_client):
     return crop
 
 
+def require_monitor_coverage(crop, monitors):
+    require(0 < len(monitors) <= 16, "physical monitor inventory exceeds bound or is empty")
+    remaining = [crop]
+    for monitor in monitors:
+        require(len(monitor) == 4 and all(isinstance(v, int) for v in monitor)
+                and monitor[0] < monitor[2] and monitor[1] < monitor[3], "invalid physical monitor rectangle")
+        uncovered = []
+        for left, top, right, bottom in remaining:
+            x0, y0 = max(left, monitor[0]), max(top, monitor[1])
+            x1, y1 = min(right, monitor[2]), min(bottom, monitor[3])
+            if x0 >= x1 or y0 >= y1:
+                uncovered.append((left, top, right, bottom))
+                continue
+            for piece in ((left, top, right, y0), (left, y1, right, bottom),
+                          (left, y0, x0, y1), (x1, y0, right, y1)):
+                if piece[0] < piece[2] and piece[1] < piece[3]:
+                    uncovered.append(piece)
+        remaining = uncovered
+    require(not remaining, "entire image capture must be covered by physical monitors; no off-screen pixels or monitor gaps")
+
+
 class Desktop:
     def __init__(self):
         require(os.name == "nt", "Windows only")
         self.u = C.WinDLL("user32", use_last_error=True)
         self.g = C.WinDLL("gdi32", use_last_error=True)
         self.callback = C.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
+        self.monitor_callback = C.WINFUNCTYPE(W.BOOL, W.HANDLE, W.HDC, C.POINTER(W.RECT), W.LPARAM)
         def bind(dll, name, result, *args):
             fn = getattr(dll, name); fn.restype = result; fn.argtypes = args
         for name in ("IsWindow", "IsWindowVisible", "IsIconic"):
@@ -57,6 +79,7 @@ class Desktop:
         bind(self.u, "ClientToScreen", W.BOOL, W.HWND, C.POINTER(W.POINT))
         bind(self.u, "GetForegroundWindow", W.HWND)
         bind(self.u, "EnumWindows", W.BOOL, self.callback, W.LPARAM)
+        bind(self.u, "EnumDisplayMonitors", W.BOOL, W.HDC, C.POINTER(W.RECT), self.monitor_callback, W.LPARAM)
         bind(self.u, "GetDC", W.HDC, W.HWND)
         bind(self.u, "ReleaseDC", C.c_int, W.HWND, W.HDC)
         bind(self.u, "SetProcessDpiAwarenessContext", W.BOOL, W.HANDLE)
@@ -68,6 +91,20 @@ class Desktop:
         bind(self.g, "BitBlt", W.BOOL, W.HDC, C.c_int, C.c_int, C.c_int, C.c_int, W.HDC, C.c_int, C.c_int, W.DWORD)
         bind(self.g, "GetDIBits", C.c_int, W.HDC, W.HBITMAP, W.UINT, W.UINT, W.LPVOID, W.LPVOID, W.UINT)
         require(self.u.SetProcessDpiAwarenessContext(W.HANDLE(-4)), "capture process must admit physical per-monitor coordinates")
+
+    def monitors(self, crop):
+        result = []
+        @self.monitor_callback
+        def visit(_, __, rectangle, ___):
+            if len(result) >= 16 or not rectangle:
+                return False
+            r = rectangle.contents
+            result.append((r.left, r.top, r.right, r.bottom))
+            return True
+        require(self.u.EnumDisplayMonitors(None, None, visit, 0), "complete physical monitor enumeration required")
+        result.sort()
+        require_monitor_coverage(crop, result)
+        return result
 
     def geometry(self, hwnd, pid):
         owner = W.DWORD()
@@ -103,6 +140,7 @@ class Desktop:
         hwnd = snapshot["hwnd"]
         client = self.geometry(hwnd, pid)
         crop = admitted_crop(snapshot, pid, client)
+        monitors_before = self.monitors(crop)
         before = self.unobstructed(hwnd, crop)
         x, y, right, bottom = crop
         width, height = right - x, bottom - y
@@ -118,6 +156,8 @@ class Desktop:
             pixels = C.create_string_buffer(width * height * 4)
             require(self.g.GetDIBits(dc, bitmap, 0, height, pixels, info, 0) == height, "incomplete native pixels")
             require(self.geometry(hwnd, pid) == client, "window changed during capture")
+            monitors_after = self.monitors(crop)
+            require(monitors_after == monitors_before, "physical monitors changed during capture")
             after = self.unobstructed(hwnd, crop)
             # BI_RGB's unused fourth byte has no alpha semantics; compare exact RGB.
             rgb = bytes(v for i, v in enumerate(pixels.raw) if i % 4 != 3)
@@ -125,6 +165,7 @@ class Desktop:
             data = struct.pack("<2sIHHI", b"BM", 54 + len(pixels.raw), 0, 0, 54) + info.raw[:40] + pixels.raw
             with path.open("xb") as output: output.write(data)
             return {"client": client, "crop": crop, "zOrderBefore": before, "zOrderAfter": after,
+                    "physicalMonitorsBefore": monitors_before, "physicalMonitorsAfter": monitors_after,
                     "rgbSha256": hashlib.sha256(rgb).hexdigest(), "fileSha256": hashlib.sha256(data).hexdigest(),
                     "bytes": len(data), "capture": "actual desktop BitBlt; no source pixels used", "qualifiedPixelParity": False}
         finally:
@@ -140,22 +181,35 @@ class Desktop:
                 else: raise RuntimeError(message)
 
 
+def clipboard_mode(allow_replace, require_empty_ci, environment):
+    require(allow_replace != require_empty_ci, "Select explicit clipboard replacement permission or the empty GitHub-hosted CI clipboard mode.")
+    if require_empty_ci:
+        require(environment.get("GITHUB_ACTIONS") == "true"
+                and environment.get("RUNNER_ENVIRONMENT") == "github-hosted"
+                and environment.get("RUNNER_OS") == "Windows"
+                and environment.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF",
+                "Empty CI clipboard mode requires the LibreWPF GitHub-hosted Windows runner.")
+        return "--require-empty-ci-clipboard"
+    return "--allow-replace-clipboard"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--allow-replace-clipboard", action="store_true")
+    parser.add_argument("--require-empty-ci-clipboard", action="store_true")
     args = parser.parse_args()
-    require(args.allow_replace_clipboard, "Root must first obtain explicit permission to replace existing clipboard contents; this probe cannot restore all formats.")
+    mode = clipboard_mode(args.allow_replace_clipboard, args.require_empty_ci_clipboard, os.environ)
     require(args.app.is_file(), "missing apphost")
     args.output.mkdir()
     started = time.monotonic(); deadline = started + 60
-    result = {"qualified": False, "status": "failed", "captures": [], "errors": [], "appSha256": hashlib.sha256(args.app.read_bytes()).hexdigest()}
+    result = {"qualified": False, "status": "failed", "captures": [], "errors": [], "clipboardMode": mode, "appSha256": hashlib.sha256(args.app.read_bytes()).hexdigest()}
     process = None
     try:
         desktop = Desktop()
         with (args.output / "stdout.log").open("xb") as stdout, (args.output / "stderr.log").open("xb") as stderr:
-            process = subprocess.Popen([str(args.app.resolve()), "--allow-replace-clipboard", str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent)
+            process = subprocess.Popen([str(args.app.resolve()), mode, str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent)
             result["pid"] = process.pid
             for phase in ("pasted", "retained"):
                 snapshot_path = args.output / (phase + ".json")
