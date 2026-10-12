@@ -221,6 +221,10 @@ public sealed class WpfFileDialogOptions
 {
     public string? Title { get; set; }
 
+    public string? InitialDirectory { get; set; }
+
+    public string? DefaultDirectory { get; set; }
+
     public string? SuggestedFileName { get; set; }
 
     public IReadOnlyList<string> FileTypePatterns { get; set; } = Array.Empty<string>();
