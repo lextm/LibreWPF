@@ -18,6 +18,7 @@ internal sealed class WpfPortablePopupBridge : IDisposable
     private readonly IPortablePresentationSourceHost _source;
     private readonly object? _ownerPresentationSource;
     private readonly WpfPortablePopupBridge? _ownerPopup;
+    private readonly bool _isTransparent;
     private IWpfPortableNativePopupHost? _nativeHost;
     private double _dpiScaleX;
     private double _dpiScaleY;
@@ -34,12 +35,14 @@ internal sealed class WpfPortablePopupBridge : IDisposable
     private Func<double, double, double, double, object?[]?>? _hitTestEllipseBoundsOverrideHandler;
     private PortableGeometryHitTestBufferOverride? _hitTestEllipseBoundsBufferOverrideHandler;
     private bool _isDisposed;
+    private ulong _inputAdmissionVersion;
 
     private WpfPortablePopupBridge(
         ProGpuWpfWindowHost host,
         IPortablePresentationSourceHost source,
         object? ownerPresentationSource,
         WpfPortablePopupBridge? ownerPopup,
+        bool isTransparent,
         int popupScreenDeviceX,
         int popupScreenDeviceY,
         int ownerClientScreenDeviceX,
@@ -51,6 +54,7 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         _source = source;
         _ownerPresentationSource = ownerPresentationSource;
         _ownerPopup = ownerPopup;
+        _isTransparent = isTransparent;
         _dpiScaleX = dpiScaleX;
         _dpiScaleY = dpiScaleY;
         _ownerClientScreenDeviceX = ownerClientScreenDeviceX;
@@ -304,6 +308,7 @@ internal sealed class WpfPortablePopupBridge : IDisposable
                 source,
                 request.OwnerPresentationSource,
                 ownerPopup,
+                request.IsTransparent,
                 request.PopupScreenDeviceX,
                 request.PopupScreenDeviceY,
                 request.OwnerClientScreenDeviceX,
@@ -606,12 +611,39 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return false;
         }
 
-        if (IsPointerInput(input.Kind) && !ContainsHostPoint(input.X, input.Y))
+        double logicalX = LogicalX;
+        double logicalY = LogicalY;
+        if (IsPointerInput(input.Kind))
         {
-            return false;
+            if (!ContainsHostPoint(input.X, input.Y))
+            {
+                return false;
+            }
+
+            if (_isTransparent)
+            {
+                ulong admissionVersion = _inputAdmissionVersion;
+                object? root = RootVisual;
+                int width = Width;
+                int height = Height;
+                double dpiScaleX = _dpiScaleX;
+                double dpiScaleY = _dpiScaleY;
+                // A transparent popup's empty margin must leave owner input
+                // on the owner source. Query ordinary source input geometry,
+                // including the presented owner callbacks; capture remains the
+                // responsibility of the existing source input router.
+                if (!_source.TryHitTestInput(input.X - logicalX, input.Y - logicalY, out bool isHit) || !isHit ||
+                    _isDisposed || !IsVisible || !IsHitTestable || _inputAdmissionVersion != admissionVersion ||
+                    !ReferenceEquals(RootVisual, root) ||
+                    LogicalX != logicalX || LogicalY != logicalY || Width != width || Height != height ||
+                    _dpiScaleX != dpiScaleX || _dpiScaleY != dpiScaleY)
+                {
+                    return false;
+                }
+            }
         }
 
-        return TryRouteInputToPresentationSource(input, input.X - LogicalX, input.Y - LogicalY);
+        return TryRouteInputToPresentationSource(input, input.X - logicalX, input.Y - logicalY);
     }
 
     private bool TryProcessNativeInput(WpfInputEventArgs input)
@@ -980,6 +1012,10 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     private void RequestRender()
     {
+        // State/source invalidation during a source-owned hit query retires its
+        // admission, including hide/reopen or geometry changes restored before
+        // the callback returns. This does not change native input generations.
+        unchecked { _inputAdmissionVersion++; }
         if (_nativeHost == null)
             _host.InvalidateNativeMilPopups();
         _host.RequestRenderAndWakeNativeLoop();

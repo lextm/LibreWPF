@@ -914,14 +914,9 @@ internal sealed partial class PortableTextLine : TextLine
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
         if (p == null) return [];
-        if (p.Variants != FontVariants.Normal || p.Capitals != FontCapitals.Normal || p.Fraction != FontFraction.Normal ||
-            p.NumeralStyle != FontNumeralStyle.Normal || p.NumeralAlignment != FontNumeralAlignment.Normal ||
-            p.EastAsianWidths != FontEastAsianWidths.Normal || p.EastAsianLanguage != FontEastAsianLanguage.Normal ||
-            p.StandardSwashes != 0 || p.ContextualSwashes != 0 || p.StylisticAlternates != 0 || p.AnnotationAlternates != 0)
-            throw Unsupported("enumerated typography alternates");
         static PortableTextFeature F(string tag, bool enabled) => new(
             (uint)tag[0] << 24 | (uint)tag[1] << 16 | (uint)tag[2] << 8 | tag[3], enabled ? 1U : 0U);
-        return [F("liga", p.StandardLigatures), F("clig", p.ContextualLigatures), F("dlig", p.DiscretionaryLigatures),
+        ReadOnlySpan<PortableTextFeature> standard = [F("liga", p.StandardLigatures), F("clig", p.ContextualLigatures), F("dlig", p.DiscretionaryLigatures),
             F("hlig", p.HistoricalLigatures), F("calt", p.ContextualAlternates), F("hist", p.HistoricalForms),
             F("kern", p.Kerning), F("cpsp", p.CapitalSpacing), F("case", p.CaseSensitiveForms),
             F("ss01", p.StylisticSet1), F("ss02", p.StylisticSet2), F("ss03", p.StylisticSet3), F("ss04", p.StylisticSet4),
@@ -930,6 +925,99 @@ internal sealed partial class PortableTextLine : TextLine
             F("ss13", p.StylisticSet13), F("ss14", p.StylisticSet14), F("ss15", p.StylisticSet15), F("ss16", p.StylisticSet16),
             F("ss17", p.StylisticSet17), F("ss18", p.StylisticSet18), F("ss19", p.StylisticSet19), F("ss20", p.StylisticSet20),
             F("zero", p.SlashedZero), F("mgrk", p.MathematicalGreek), F("expt", p.EastAsianExpertForms)];
+
+        // Match the source LineServicesRun typography policy using OpenType tags.
+        // Each native style owns its complete feature range, so a following Normal
+        // run does not inherit the paragraph's or preceding run's alternates.
+        // 32 Boolean features, four numeric alternates and at most nine enum tags.
+        Span<PortableTextFeature> features = stackalloc PortableTextFeature[45];
+        standard.CopyTo(features);
+        int count = standard.Length;
+        AddAlternate(features, ref count, "nalt", p.AnnotationAlternates);
+        AddAlternate(features, ref count, "cswh", p.ContextualSwashes);
+        AddAlternate(features, ref count, "salt", p.StylisticAlternates);
+        AddAlternate(features, ref count, "swsh", p.StandardSwashes);
+
+        switch (p.Capitals)
+        {
+            case FontCapitals.Normal: break;
+            case FontCapitals.AllPetiteCaps:
+                Add(features, ref count, "pcap"); Add(features, ref count, "c2pc"); break;
+            case FontCapitals.PetiteCaps: Add(features, ref count, "pcap"); break;
+            case FontCapitals.AllSmallCaps:
+                Add(features, ref count, "smcp"); Add(features, ref count, "c2sc"); break;
+            case FontCapitals.SmallCaps: Add(features, ref count, "smcp"); break;
+            case FontCapitals.Titling: Add(features, ref count, "titl"); break;
+            case FontCapitals.Unicase: Add(features, ref count, "unic"); break;
+            default: throw Unsupported("unknown typography capitals");
+        }
+        switch (p.EastAsianLanguage)
+        {
+            case FontEastAsianLanguage.Normal: break;
+            case FontEastAsianLanguage.Simplified: Add(features, ref count, "smpl"); break;
+            case FontEastAsianLanguage.Traditional: Add(features, ref count, "trad"); break;
+            case FontEastAsianLanguage.TraditionalNames: Add(features, ref count, "tnam"); break;
+            case FontEastAsianLanguage.NlcKanji: Add(features, ref count, "nlck"); break;
+            case FontEastAsianLanguage.HojoKanji: Add(features, ref count, "hojo"); break;
+            case FontEastAsianLanguage.Jis78: Add(features, ref count, "jp78"); break;
+            case FontEastAsianLanguage.Jis83: Add(features, ref count, "jp83"); break;
+            case FontEastAsianLanguage.Jis90: Add(features, ref count, "jp90"); break;
+            case FontEastAsianLanguage.Jis04: Add(features, ref count, "jp04"); break;
+            default: throw Unsupported("unknown typography East Asian language");
+        }
+        switch (p.Fraction)
+        {
+            case FontFraction.Normal: break;
+            case FontFraction.Stacked: Add(features, ref count, "afrc"); break;
+            case FontFraction.Slashed: Add(features, ref count, "frac"); break;
+            default: throw Unsupported("unknown typography fraction");
+        }
+        switch (p.NumeralAlignment)
+        {
+            case FontNumeralAlignment.Normal: break;
+            case FontNumeralAlignment.Proportional: Add(features, ref count, "pnum"); break;
+            case FontNumeralAlignment.Tabular: Add(features, ref count, "tnum"); break;
+            default: throw Unsupported("unknown typography numeral alignment");
+        }
+        switch (p.NumeralStyle)
+        {
+            case FontNumeralStyle.Normal: break;
+            case FontNumeralStyle.Lining: Add(features, ref count, "lnum"); break;
+            case FontNumeralStyle.OldStyle: Add(features, ref count, "onum"); break;
+            default: throw Unsupported("unknown typography numeral style");
+        }
+        switch (p.Variants)
+        {
+            case FontVariants.Normal: break;
+            case FontVariants.Inferior: Add(features, ref count, "sinf"); break;
+            case FontVariants.Ordinal: Add(features, ref count, "ordn"); break;
+            case FontVariants.Ruby: Add(features, ref count, "ruby"); break;
+            case FontVariants.Subscript: Add(features, ref count, "subs"); break;
+            case FontVariants.Superscript: Add(features, ref count, "sups"); break;
+            default: throw Unsupported("unknown typography variants");
+        }
+        switch (p.EastAsianWidths)
+        {
+            case FontEastAsianWidths.Normal: break;
+            case FontEastAsianWidths.Proportional:
+                Add(features, ref count, "pwid"); Add(features, ref count, "palt"); break;
+            case FontEastAsianWidths.Full: Add(features, ref count, "fwid"); break;
+            case FontEastAsianWidths.Half:
+                Add(features, ref count, "hwid"); Add(features, ref count, "halt"); break;
+            case FontEastAsianWidths.Third: Add(features, ref count, "twid"); break;
+            case FontEastAsianWidths.Quarter: Add(features, ref count, "qwid"); break;
+            default: throw Unsupported("unknown typography East Asian width");
+        }
+        return features[..count].ToArray();
+
+        static void Add(Span<PortableTextFeature> features, ref int count, string tag, uint value = 1) =>
+            features[count++] = new((uint)tag[0] << 24 | (uint)tag[1] << 16 | (uint)tag[2] << 8 | tag[3], value);
+
+        static void AddAlternate(Span<PortableTextFeature> features, ref int count, string tag, int value)
+        {
+            if (value < 0) throw Unsupported("negative typography alternate");
+            if (value != 0) Add(features, ref count, tag, checked((uint)value));
+        }
     }
 
     private readonly TextAlignment _alignment;

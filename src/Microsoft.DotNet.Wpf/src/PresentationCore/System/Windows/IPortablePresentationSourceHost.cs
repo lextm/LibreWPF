@@ -62,6 +62,17 @@ namespace System.Windows
 
         bool TryUpdateRootVisualClientSize(out double width, out double height);
 
+        /// <summary>
+        /// Queries this source's ordinary input hit test in root coordinates,
+        /// without dispatching input or changing mouse capture. A successful
+        /// query can report a miss; an unavailable query must not imply a hit.
+        /// </summary>
+        bool TryHitTestInput(double x, double y, out bool isHit)
+        {
+            isHit = false;
+            return false;
+        }
+
         bool DispatchHwndSourceHook(int message, IntPtr wParam, IntPtr lParam, out IntPtr result, out bool handled);
     }
 }

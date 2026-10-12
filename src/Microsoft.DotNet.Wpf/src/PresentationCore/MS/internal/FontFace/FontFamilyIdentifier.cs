@@ -298,6 +298,12 @@ namespace MS.Internal.FontFace
 
                 int begin = i;
 
+                // The literal application pack authority is one URI component.
+                // Keep ordinary comma escaping/delimiters in its path and family,
+                // including a fully escaped authority.
+                if (friendlyName.AsSpan(i).StartsWith(Util.ApplicationPackFontUriPrefix, StringComparison.OrdinalIgnoreCase))
+                    i += Util.ApplicationPackFontUriPrefix.Length;
+
                 // find delimiter or end of string
                 while (i < length)
                 {
