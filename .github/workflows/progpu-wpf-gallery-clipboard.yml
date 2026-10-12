@@ -30,7 +30,7 @@ jobs:
       PRODUCER_HEAD: ${{ inputs.head }}
       PRODUCER_BUILD: ${{ inputs.build }}
       PRODUCER_DOCS: ${{ inputs.docs }}
-      CASE_ROOT: artifacts/gallery-clipboard-ci
+      CASE_ROOT: ${{ runner.temp }}/gallery-clipboard-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,10 +78,10 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
-            artifacts/gallery-clipboard-ci/inputs/*.json
-            artifacts/gallery-clipboard-ci/consumer/preparation.json
-            artifacts/gallery-clipboard-ci/consumer/build.log
-            artifacts/gallery-clipboard-ci/consumer/source-manifest.json
-            artifacts/gallery-clipboard-ci/original/Assets/ControlImages/Clipboard.png
-            artifacts/gallery-clipboard-ci/original/LICENSE
-            artifacts/gallery-clipboard-ci/runtime/**
+            ${{ env.CASE_ROOT }}/inputs/*.json
+            ${{ env.CASE_ROOT }}/consumer/preparation.json
+            ${{ env.CASE_ROOT }}/consumer/build.log
+            ${{ env.CASE_ROOT }}/consumer/source-manifest.json
+            ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
+            ${{ env.CASE_ROOT }}/original/LICENSE
+            ${{ env.CASE_ROOT }}/runtime/**
