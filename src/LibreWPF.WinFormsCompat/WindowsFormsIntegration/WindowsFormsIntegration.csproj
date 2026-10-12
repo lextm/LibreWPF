@@ -25,8 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
     <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
-    <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
-    <ProjectReference Include="..\..\..\external\ProGPU\src\System.Drawing.Common\System.Drawing.Common.csproj" />
+    <ProjectReference Include="..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="$(LibreWinFormsSourceRoot)src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" />
     <ProjectReference Include="..\System.Windows.Forms\System.Windows.Forms.csproj" />
     <Reference Include="WindowsBase" HintPath="$(_LibreWpfManagedAssemblyRoot)WindowsBase\$(Configuration)\$(TargetFramework)\WindowsBase.dll" Private="false" />
     <Reference Include="System.Xaml" HintPath="$(_LibreWpfManagedAssemblyRoot)System.Xaml\$(Configuration)\$(TargetFramework)\System.Xaml.dll" Private="false" />

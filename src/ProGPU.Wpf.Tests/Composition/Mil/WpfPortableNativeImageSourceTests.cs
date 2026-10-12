@@ -11,7 +11,7 @@ public sealed class WpfPortableNativeImageSourceTests
     public void LibreWinFormsStableImagesUseTypedGpuDirectCarrierBeforePixelFallback()
     {
         string interop = File.ReadAllText(FindRepoPath(
-            "external", "ProGPU", "src", "ProGPU.Wpf.Interop", "PortableNativeImageSource.cs"));
+            "src", "ProGPU.Wpf.Interop", "PortableNativeImageSource.cs"));
         string factory = File.ReadAllText(FindRepoPath(
             "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore", "System", "Windows", "Media",
             "PortableNativeImageSourceFactory.cs"));

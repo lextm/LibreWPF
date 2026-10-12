@@ -90,9 +90,9 @@ else
     "${repo_root}/external/ProGPU/src/ProGPU.Text" \
     "${repo_root}/external/ProGPU/src/ProGPU.Transpiler" \
     "${repo_root}/external/ProGPU/src/ProGPU.Vector" \
-    "${repo_root}/external/ProGPU/src/ProGPU.Wpf.Interop" \
-    "${repo_root}/external/ProGPU/src/PresentationCore" \
-    "${repo_root}/external/ProGPU/src/WindowsBase"; do
+    "${repo_root}/src/ProGPU.Wpf.Interop" \
+    "${repo_root}/src/ProGPU.Compatibility/PresentationCore" \
+    "${repo_root}/src/ProGPU.Compatibility/WindowsBase"; do
     if find "${source_path}" \
       \( -path '*/bin' -o -path '*/obj' \) -prune -o \
       -type f \( -name '*.cs' -o -name '*.props' -o -name '*.targets' -o -name '*.csproj' \) \

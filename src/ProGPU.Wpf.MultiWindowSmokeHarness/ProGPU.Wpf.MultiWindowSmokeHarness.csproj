@@ -15,8 +15,8 @@
              Link="Fonts/LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- ProGPU.Wpf references these but does not carry them: it is packaged against the
          source-built WPF assemblies, which a consumer supplies. -->
-    <ProjectReference Include="..\..\external\ProGPU\src\WindowsBase\WindowsBase.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\..\external\ProGPU\src\PresentationCore\PresentationCore.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\ProGPU.Compatibility\WindowsBase\WindowsBase.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\ProGPU.Compatibility\PresentationCore\PresentationCore.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\ProGPU.Wpf\ProGPU.Wpf.csproj" />
   </ItemGroup>
 

@@ -57,6 +57,10 @@ Wayland.
 5. Pursue trimming and NativeAOT only through generated or typed metadata—not
    by preserving runtime reflection scaffolding.
 
+The [NativeAOT, accessibility and printing support boundary](docs/nativeaot-accessibility-printing.md)
+separates existing renderer/managed contracts from the remaining application and
+OS-service delivery gates tracked in #261.
+
 ## Ecosystem status
 
 - DevFlow, AvalonEdit, WpfDesigner, SharpDevelop, and VS Code/OpenDevelop

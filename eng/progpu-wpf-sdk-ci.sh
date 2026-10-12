@@ -19,6 +19,10 @@ case "${1:-}" in
 esac
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export ProGpuSourceRoot="${repo_root}/external/ProGPU/"
+export LibreWpfSourceRoot="${repo_root}/"
+export LibreWinFormsSourceRoot="${repo_root}/external/LibreWinForms/"
+python3 "${ProGpuSourceRoot}eng/progpu-prepare-framework-sources.py"
 source "${repo_root}/eng/progpu-preview-package-list.sh"
 dotnet="${repo_root}/.dotnet/dotnet"
 if [[ ! -x "${dotnet}" ]]; then
@@ -92,6 +96,13 @@ package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Rel
 dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.67}"
 progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.67}"
 prepackaged_progpu_dir="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}"
+# Keep the original package source after snapshot_staged_progpu_packages exports
+# its exact package directory for downstream consumers.
+if [[ -z "${prepackaged_progpu_dir}" ]]; then
+  export PROGPU_WPF_REPACKED_FRAMEWORK_PACKAGES=1
+else
+  export PROGPU_WPF_REPACKED_FRAMEWORK_PACKAGES=0
+fi
 canonical_librewinforms_package_dir="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-progpu-packages"
 sdk_sample_target_framework="${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}"
@@ -129,6 +140,7 @@ pack_project() {
     -v:minimal \
     -p:Version="${package_version}" \
     -p:PackageVersion="${package_version}" \
+    -p:ProGpuSourceRoot="${ProGpuSourceRoot}" \
     -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
     -p:ProGpuPackageVersion="${progpu_package_version}" \
     -p:RestoreAdditionalProjectSources="${package_output}"
@@ -316,8 +328,8 @@ stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Media.Scene/ProGPU.Medi
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.WinUI/ProGPU.WinUI.csproj" "ProGPU.WinUI"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Avalonia/ProGPU.Avalonia.csproj" "ProGPU.Avalonia"
 stage_or_pack_progpu_project "external/ProGPU/src/SkiaSharp/SkiaSharp.csproj" "ProGPU.SkiaSharp"
-stage_or_pack_progpu_project "external/ProGPU/src/System.Drawing.Common/System.Drawing.Common.csproj" "ProGPU.System.Drawing.Common"
-stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
+stage_or_pack_progpu_project "external/LibreWinForms/src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" "ProGPU.System.Drawing.Common"
+stage_or_pack_progpu_project "src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
 snapshot_staged_progpu_packages
 
 if [[ "${build_packages_only}" == "0" ]]; then

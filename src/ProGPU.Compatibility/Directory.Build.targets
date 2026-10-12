@@ -1,0 +1,3 @@
+<Project>
+  <Import Project="$(ProGpuSourceRoot)/Directory.Build.targets" />
+</Project>

@@ -1,0 +1,99 @@
+using System;
+
+namespace ProGPU.Wpf.Interop;
+
+public interface IPortablePenSource
+{
+    bool TryGetPortablePen(out PortablePen pen);
+}
+
+/// <summary>Publishes stroke state without reducing a brush resource to a color/gradient DTO.</summary>
+public interface IPortablePenStateSource
+{
+    bool TryGetPortablePenState(out PortablePenState state);
+}
+
+/// <summary>
+/// Package-neutral stroke snapshot. Brush is null or a resource implementing
+/// IPortableBrushSource/IPortableTileBrushSource/IPortableBitmapCacheBrushSource;
+/// consumers must not inspect object shape or reduce a cached material to a solid brush.
+/// The publisher owns the dash snapshot and must not mutate it after publication.
+/// Brush identity is retained so the scene compiler can share resources and detect cycles.
+/// </summary>
+public readonly record struct PortablePenState(
+    object? Brush,
+    double Thickness,
+    PortablePenLineCap StartLineCap,
+    PortablePenLineCap EndLineCap,
+    PortablePenLineCap DashCap,
+    PortablePenLineJoin LineJoin,
+    double MiterLimit,
+    ReadOnlyMemory<double> Dashes,
+    double DashOffset);
+
+public interface IPortableDashStyleSource
+{
+    int PortableDashCount { get; }
+
+    double PortableDashOffset { get; }
+
+    double GetPortableDash(int index);
+}
+
+public enum PortablePenLineCap
+{
+    Flat = 0,
+    Square = 1,
+    Round = 2,
+    Triangle = 3
+}
+
+public enum PortablePenLineJoin
+{
+    Miter = 0,
+    Bevel = 1,
+    Round = 2
+}
+
+public sealed class PortablePen
+{
+    public PortablePen(
+        PortableBrush brush,
+        double thickness,
+        PortablePenLineCap startLineCap,
+        PortablePenLineCap endLineCap,
+        PortablePenLineCap dashCap,
+        PortablePenLineJoin lineJoin,
+        double miterLimit,
+        double[]? dashArray,
+        double dashOffset)
+    {
+        Brush = brush ?? throw new ArgumentNullException(nameof(brush));
+        Thickness = thickness;
+        StartLineCap = startLineCap;
+        EndLineCap = endLineCap;
+        DashCap = dashCap;
+        LineJoin = lineJoin;
+        MiterLimit = miterLimit;
+        DashArray = dashArray is null ? Array.Empty<double>() : (double[])dashArray.Clone();
+        DashOffset = dashOffset;
+    }
+
+    public PortableBrush Brush { get; }
+
+    public double Thickness { get; }
+
+    public PortablePenLineCap StartLineCap { get; }
+
+    public PortablePenLineCap EndLineCap { get; }
+
+    public PortablePenLineCap DashCap { get; }
+
+    public PortablePenLineJoin LineJoin { get; }
+
+    public double MiterLimit { get; }
+
+    public double[] DashArray { get; }
+
+    public double DashOffset { get; }
+}

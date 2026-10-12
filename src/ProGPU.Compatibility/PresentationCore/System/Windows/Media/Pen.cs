@@ -1,0 +1,196 @@
+using ProGPU.Wpf.Interop;
+
+namespace System.Windows.Media;
+
+public enum PenLineJoin
+{
+    Miter = 0,
+    Bevel = 1,
+    Round = 2
+}
+
+public enum PenLineCap
+{
+    Flat = 0,
+    Square = 1,
+    Round = 2,
+    Triangle = 3
+}
+
+public class DashStyle : IPortableDashStyleSource
+{
+    private double[] _dashes = global::System.Array.Empty<double>();
+
+    public DashStyle()
+        : this(global::System.Array.Empty<double>(), 0)
+    {
+    }
+
+    public DashStyle(double[] dashes, double offset)
+    {
+        Dashes = dashes;
+        Offset = offset;
+    }
+
+    public double[] Dashes
+    {
+        get => (double[])_dashes.Clone();
+        set => _dashes = value is null ? global::System.Array.Empty<double>() : (double[])value.Clone();
+    }
+
+    public double Offset { get; set; }
+
+    int IPortableDashStyleSource.PortableDashCount => _dashes.Length;
+
+    double IPortableDashStyleSource.PortableDashOffset => Offset;
+
+    double IPortableDashStyleSource.GetPortableDash(int index)
+    {
+        return _dashes[index];
+    }
+}
+
+public class Pen : IPortablePenSource, IPortablePenStateSource
+{
+    public Brush? Brush { get; set; }
+    public double Thickness { get; set; } = 1.0;
+    public PenLineJoin LineJoin { get; set; } = PenLineJoin.Miter;
+    public double MiterLimit { get; set; } = 10.0;
+    public PenLineCap StartLineCap { get; set; } = PenLineCap.Flat;
+    public PenLineCap EndLineCap { get; set; } = PenLineCap.Flat;
+    public PenLineCap DashCap { get; set; } = PenLineCap.Flat;
+    public DashStyle? DashStyle { get; set; }
+
+    public Pen() { }
+
+    public Pen(Brush? brush, double thickness)
+    {
+        Brush = brush;
+        Thickness = thickness;
+    }
+
+    public ProGPU.Vector.Pen? ToNative()
+    {
+        return ToNative(1f);
+    }
+
+    public ProGPU.Vector.Pen? ToNative(float thicknessScale)
+    {
+        if (Brush == null) return null;
+        return CreateNativePen(Brush.ToNative(), thicknessScale);
+    }
+
+    public ProGPU.Vector.Pen? ToNative(Rect targetBounds)
+    {
+        return ToNative(targetBounds, 1f);
+    }
+
+    public ProGPU.Vector.Pen? ToNative(Rect targetBounds, float thicknessScale)
+    {
+        if (Brush == null) return null;
+        return CreateNativePen(Brush.ToNative(targetBounds), thicknessScale);
+    }
+
+    private ProGPU.Vector.Pen CreateNativePen(ProGPU.Vector.Brush brush, float thicknessScale)
+    {
+        return new ProGPU.Vector.Pen(
+            brush,
+            GetScaledThickness(thicknessScale),
+            ToNativeLineJoin(LineJoin),
+            (float)global::System.Math.Max(1.0, MiterLimit),
+            ToNativeLineCap(StartLineCap),
+            ToNativeLineCap(EndLineCap),
+            ToNativeLineCap(DashCap),
+            GetDashArray(),
+            DashStyle?.Offset ?? 0.0)
+        {
+            UseWpfJoinSemantics = true
+        };
+    }
+
+    private float GetScaledThickness(float thicknessScale)
+    {
+        if (!float.IsFinite(thicknessScale) || thicknessScale <= 0f)
+        {
+            thicknessScale = 1f;
+        }
+
+        return (float)Thickness * thicknessScale;
+    }
+
+    private double[]? GetDashArray()
+    {
+        if (DashStyle?.Dashes is not { Length: > 0 } dashes)
+        {
+            return null;
+        }
+
+        var nativeDashes = new double[dashes.Length];
+        for (var i = 0; i < dashes.Length; i++)
+        {
+            var dash = dashes[i];
+            if (!double.IsFinite(dash) || dash < 0.0)
+            {
+                return null;
+            }
+
+            nativeDashes[i] = dash;
+        }
+
+        return nativeDashes;
+    }
+
+    private static ProGPU.Vector.PenLineJoin ToNativeLineJoin(PenLineJoin lineJoin)
+    {
+        return lineJoin switch
+        {
+            PenLineJoin.Bevel => ProGPU.Vector.PenLineJoin.Bevel,
+            PenLineJoin.Round => ProGPU.Vector.PenLineJoin.Round,
+            _ => ProGPU.Vector.PenLineJoin.Miter
+        };
+    }
+
+    private static ProGPU.Vector.PenLineCap ToNativeLineCap(PenLineCap lineCap)
+    {
+        return lineCap switch
+        {
+            PenLineCap.Square => ProGPU.Vector.PenLineCap.Square,
+            PenLineCap.Round => ProGPU.Vector.PenLineCap.Round,
+            PenLineCap.Triangle => ProGPU.Vector.PenLineCap.Triangle,
+            _ => ProGPU.Vector.PenLineCap.Flat
+        };
+    }
+
+    bool IPortablePenStateSource.TryGetPortablePenState(out PortablePenState state)
+    {
+        // Algorithm: snapshot scalar stroke state and the dash array; retain brush identity.
+        // Time: O(D) for D dashes. Space: O(D) durable snapshot, no pixel or geometry work.
+        state = new PortablePenState(Brush, Thickness,
+            (PortablePenLineCap)StartLineCap, (PortablePenLineCap)EndLineCap,
+            (PortablePenLineCap)DashCap, (PortablePenLineJoin)LineJoin, MiterLimit,
+            DashStyle?.Dashes ?? global::System.Array.Empty<double>(), DashStyle?.Offset ?? 0.0);
+        return true;
+    }
+
+    bool IPortablePenSource.TryGetPortablePen(out PortablePen pen)
+    {
+        pen = null!;
+        if (Brush is not IPortableBrushSource brushSource
+            || !brushSource.TryGetPortableBrush(out var portableBrush))
+        {
+            return false;
+        }
+
+        pen = new PortablePen(
+            portableBrush,
+            Thickness,
+            (PortablePenLineCap)StartLineCap,
+            (PortablePenLineCap)EndLineCap,
+            (PortablePenLineCap)DashCap,
+            (PortablePenLineJoin)LineJoin,
+            MiterLimit,
+            DashStyle?.Dashes,
+            DashStyle?.Offset ?? 0.0);
+        return true;
+    }
+}

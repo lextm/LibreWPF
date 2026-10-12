@@ -48,7 +48,7 @@
     <ProjectReference Include="$(WpfSourceDir)WindowsBase\WindowsBase.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\PresentationCore.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationFramework\PresentationFramework.csproj" />
-    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
 
     <ProjectReference Include="$(WpfSourceDir)Themes\PresentationFramework.Luna\ref\PresentationFramework.Luna-ref.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

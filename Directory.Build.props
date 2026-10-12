@@ -1,6 +1,8 @@
 <Project>
 
   <PropertyGroup>
+    <LibreWinFormsSourceRoot Condition="'$(LibreWinFormsSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)external/LibreWinForms'))</LibreWinFormsSourceRoot>
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)external/ProGPU'))</ProGpuSourceRoot>
     <RepositoryName>wpf</RepositoryName>
     <PackageProjectUrl>https://github.com/wieslawsoltes/wpf</PackageProjectUrl>
     <RepositoryUrl>https://github.com/wieslawsoltes/wpf</RepositoryUrl>

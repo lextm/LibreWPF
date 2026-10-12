@@ -147,7 +147,13 @@ public sealed class WpfManagedProjectGraphTests
             "run: bash ./eng/progpu-wpf-visual-host-source.sh",
             "run: bash ./eng/progpu-wpf-popup-dismissal-source.sh",
         };
-        Assert.Equal(commands, job.Split('\n').Select(line => line.Trim())
+        Assert.Contains("name: Prepare exact framework source dependencies", job, StringComparison.Ordinal);
+        Assert.Contains("python3 external/ProGPU/eng/progpu-prepare-framework-sources.py", job, StringComparison.Ordinal);
+        Assert.Contains("ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/", job, StringComparison.Ordinal);
+        Assert.Contains("LibreWpfSourceRoot=${GITHUB_WORKSPACE}/", job, StringComparison.Ordinal);
+        Assert.Contains("LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/", job, StringComparison.Ordinal);
+        AssertGuardBefore(job, "name: Prepare exact framework source dependencies", "uses: actions/setup-dotnet@v4");
+        Assert.Equal(new[] { "run: |" }.Concat(commands), job.Split('\n').Select(line => line.Trim())
             .Where(line => line.StartsWith("run:", StringComparison.Ordinal)).ToArray());
         foreach (string command in commands)
         {
@@ -926,7 +932,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains(
             presentationFrameworkTestsProject.Descendants("ProjectReference"),
             reference => reference.Attribute("Include")?.Value.Replace('/', '\\').EndsWith(
-                @"external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj",
+                @"src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj",
                 StringComparison.OrdinalIgnoreCase) == true);
     }
 
@@ -1404,14 +1410,10 @@ public sealed class WpfManagedProjectGraphTests
             "PresentationCore",
             "ModuleInitializer.cs");
         var portableWpfServiceRegistryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
         var portableInvalidationSourcePath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableInvalidationSource.cs");
@@ -3513,8 +3515,6 @@ public sealed class WpfManagedProjectGraphTests
             "PresentationFramework",
             "ModuleInitializer.cs");
         var portableWpfServiceRegistryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
@@ -3674,8 +3674,6 @@ public sealed class WpfManagedProjectGraphTests
             "PresentationFramework",
             "ModuleInitializer.cs");
         var portableWpfServiceRegistryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
@@ -3766,8 +3764,6 @@ public sealed class WpfManagedProjectGraphTests
             "PresentationCore",
             "ModuleInitializer.cs");
         var portableWpfServiceRegistryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
@@ -3983,8 +3979,6 @@ public sealed class WpfManagedProjectGraphTests
             "PresentationFramework",
             "ModuleInitializer.cs");
         var portableWpfServiceRegistryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
@@ -4340,7 +4334,7 @@ public sealed class WpfManagedProjectGraphTests
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj");
-        AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj");
+        AssertProjectReference(harnessProject, @"src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj");
 
         var presentationCoreReference = AssertProjectReference(
             harnessProject,
@@ -7543,8 +7537,6 @@ public sealed class WpfManagedProjectGraphTests
             "Mil",
             "WpfMilResourceRegistry.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableRenderData.cs"));
@@ -7647,8 +7639,6 @@ public sealed class WpfManagedProjectGraphTests
             "ProGPU.Wpf.Tests",
             "ProGpuWpfDrawingFrameTests.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableVisualChildren.cs"));
@@ -7824,8 +7814,6 @@ public sealed class WpfManagedProjectGraphTests
             "Media",
             "Visual.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableVisualState.cs"));
@@ -8116,8 +8104,6 @@ public sealed class WpfManagedProjectGraphTests
             "ref",
             "PresentationCore.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableDrawingGroupState.cs"));
@@ -8216,8 +8202,6 @@ public sealed class WpfManagedProjectGraphTests
             "ref",
             "PresentationCore.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableGeometryDrawingState.cs"));
@@ -8361,14 +8345,10 @@ public sealed class WpfManagedProjectGraphTests
             "ref",
             "PresentationCore.cs"));
         var imageInteropSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableImageDrawingState.cs"));
         var glyphInteropSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableGlyphRunDrawingState.cs"));
@@ -8441,8 +8421,6 @@ public sealed class WpfManagedProjectGraphTests
             "Windows",
             "FrameworkElement.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableVisualLayoutState.cs"));
@@ -8456,8 +8434,6 @@ public sealed class WpfManagedProjectGraphTests
             "Media",
             "Visual.cs"));
         var visualBoundsInteropSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableVisualBounds.cs"));
@@ -8545,8 +8521,6 @@ public sealed class WpfManagedProjectGraphTests
             "Media3D",
             "PortableViewport3DSceneExporter.cs"));
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableViewport3DScene.cs"));
@@ -8620,8 +8594,6 @@ public sealed class WpfManagedProjectGraphTests
             "Mil",
             "WpfEffectMapper.cs"));
         var portableEffect = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableEffect.cs"));
@@ -8725,8 +8697,6 @@ public sealed class WpfManagedProjectGraphTests
             "Mil",
             "WpfEffectMapper.cs"));
         var portableShaderEffect = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableShaderEffect.cs"));
@@ -8826,8 +8796,6 @@ public sealed class WpfManagedProjectGraphTests
             "Mil",
             "WpfDrawingReplay.cs"));
         var portableTileBrush = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableTileBrush.cs"));
@@ -10420,8 +10388,8 @@ public sealed class WpfManagedProjectGraphTests
         var projectPath = FindRepoPath(relativeProjectPath.Split('/'));
         var project = File.ReadAllText(projectPath);
         var projectWithoutInteropContract = project
-            .Replace(@"$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj", string.Empty, StringComparison.Ordinal)
-            .Replace(@"..\..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj", string.Empty, StringComparison.Ordinal);
+            .Replace(@"$(WpfSourceDir)..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj", string.Empty, StringComparison.Ordinal)
+            .Replace(@"..\..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj", string.Empty, StringComparison.Ordinal);
 
         Assert.DoesNotContain("ProGPU.Wpf", projectWithoutInteropContract, StringComparison.Ordinal);
         Assert.DoesNotContain(@"external\ProGPU", projectWithoutInteropContract, StringComparison.Ordinal);
@@ -10762,15 +10730,15 @@ public sealed class WpfManagedProjectGraphTests
             "ProGPU.Vector",
             "PathOpGeometrySolver.cs"));
         var presentationCoreGpuProvider = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "GpuProvider.cs"));
         var systemDrawingGpuProvider = File.ReadAllText(FindRepoPath(
             "external",
-            "ProGPU",
+            "LibreWinForms",
             "src",
+            "ProGPU.Drawing",
             "System.Drawing.Common",
             "GpuProvider.cs"));
         var skiaSharp = File.ReadAllText(FindRepoPath(
@@ -12208,7 +12176,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PROGPU_WPF_XCEED_PAID_REBUILD_PACKAGES", runScript, StringComparison.Ordinal);
         Assert.Contains("-newer \"${sdk_package}\"", runScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/src/ProGPU.Wpf\"", runScript, StringComparison.Ordinal);
-        Assert.Contains("\"${repo_root}/external/ProGPU/src/ProGPU.Wpf.Interop\"", runScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/src/ProGPU.Wpf.Interop\"", runScript, StringComparison.Ordinal);
         Assert.Contains("Launching ProGPU WPF paid Xceed apphost live geometry probe", runScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_XCEED_PAID_LIVE_VALIDATE_STATUS_PATH", runScript, StringComparison.Ordinal);
         Assert.Contains("live_status=\"$(mktemp", runScript, StringComparison.Ordinal);
@@ -12562,39 +12530,34 @@ public sealed class WpfManagedProjectGraphTests
             "Media",
             "GlyphRun.cs");
         var proGpuPresentationCoreBrushPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "System",
             "Windows",
             "Media",
             "Brush.cs");
         var proGpuPresentationCoreGradientBrushesPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "System",
             "Windows",
             "Media",
             "GradientBrushes.cs");
         var proGpuPresentationCoreProjectPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "PresentationCore.csproj");
         var proGpuWindowsBaseProjectPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "WindowsBase",
             "WindowsBase.csproj");
         var proGpuPresentationCoreFreezablePath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "WindowsBase",
             "System",
             "Windows",
@@ -12606,8 +12569,6 @@ public sealed class WpfManagedProjectGraphTests
             "Mil",
             "WpfBitmapSourceImageAdapter.cs");
         var portableBitmapSourcePixelsPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableBitmapSourcePixels.cs");
@@ -13824,9 +13785,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("external/ProGPU/src/ProGPU.Text.Shaping/ProGPU.Text.Shaping.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("external/ProGPU/src/ProGPU.Scene/ProGPU.Scene.csproj", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("external/ProGPU/src/SkiaSharp/SkiaSharp.csproj", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("external/ProGPU/src/System.Drawing.Common/System.Drawing.Common.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("external/LibreWinForms/src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Building managed WPF transport payload", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("rm -rf \"${repo_root}/artifacts/packaging/Release/LibreWPF.Transport\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/Microsoft.DotNet.Wpf/src/Microsoft.Win32.SystemEvents/Microsoft.Win32.SystemEvents.csproj", validationGraphs, StringComparison.Ordinal);
@@ -13984,8 +13945,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.WinUI/ProGPU.WinUI.csproj\" \"ProGPU.WinUI\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Avalonia/ProGPU.Avalonia.csproj\" \"ProGPU.Avalonia\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/SkiaSharp/SkiaSharp.csproj\" \"ProGPU.SkiaSharp\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/System.Drawing.Common/System.Drawing.Common.csproj\" \"ProGPU.System.Drawing.Common\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj\" \"LibreWPF.Interop\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("stage_or_pack_progpu_project \"external/LibreWinForms/src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj\" \"ProGPU.System.Drawing.Common\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("stage_or_pack_progpu_project \"src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj\" \"LibreWPF.Interop\"", sdkCiScript, StringComparison.Ordinal);
         Assert.True(
             sdkCiScript.IndexOf("\nsnapshot_staged_progpu_packages\n", StringComparison.Ordinal)
                 < sdkCiScript.IndexOf("Building managed WPF transport payload", StringComparison.Ordinal),
@@ -20297,8 +20258,6 @@ public sealed class WpfManagedProjectGraphTests
             "ProGPU.Wpf",
             "ProGpuWpfCompositionTarget.cs");
         var portableGeometryHitTestCandidatePath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableGeometryHitTestCandidate.cs");
@@ -20573,14 +20532,10 @@ public sealed class WpfManagedProjectGraphTests
             "Windows",
             "ThemeManager.cs");
         var contractPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableSystemTheme.cs");
         var registryPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs");
@@ -20717,8 +20672,6 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("host.DoEvents();", activation, StringComparison.Ordinal);
 
         var registry = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableWpfServiceRegistry.cs"));
