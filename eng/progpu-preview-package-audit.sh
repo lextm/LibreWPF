@@ -179,10 +179,23 @@ for package_id in "${runtime_packages[@]}"; do
   else
     require_entry "${package_id}" "lib/net10.0/$(package_assembly_name "${package_id}").dll"
   fi
-  require_nuspec_repository \
-    "${package_id}" \
-    "https://github.com/wieslawsoltes/ProGPU" \
-    "${progpu_package_commit}"
+  case "${package_id}" in
+    LibreWPF.Interop|ProGPU.System.Drawing.Common)
+      framework_source_arguments=("${package_id}" "${repo_root}" "${progpu_package_commit}")
+      if [[ -n "${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}" && "${PROGPU_WPF_REPACKED_FRAMEWORK_PACKAGES:-0}" != "1" ]]; then
+        framework_source_arguments+=(--producer-packages)
+      fi
+      framework_identity="$(python3 "${repo_root}/eng/progpu-framework-package-source.py" "${framework_source_arguments[@]}")"
+      IFS='|' read -r framework_url framework_commit <<<"${framework_identity}"
+      require_nuspec_repository "${package_id}" "${framework_url}" "${framework_commit}"
+      ;;
+    *)
+      require_nuspec_repository \
+        "${package_id}" \
+        "https://github.com/wieslawsoltes/ProGPU" \
+        "${progpu_package_commit}"
+      ;;
+  esac
 done
 
 for package_id in "${wpf_repository_packages[@]}"; do

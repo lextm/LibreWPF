@@ -49,6 +49,14 @@ jobs:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: true
 
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
+
       - name: Setup repository SDK and .NET 10 test runtime
         uses: actions/setup-dotnet@v4
         with:
@@ -93,6 +101,14 @@ jobs:
         with:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: recursive
+
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -148,6 +164,14 @@ jobs:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: recursive
 
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -201,6 +225,14 @@ jobs:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: true
 
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -233,6 +265,14 @@ jobs:
         with:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: true
+
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -296,7 +336,9 @@ jobs:
         run: python3 eng/tests/test_showcase_failure_archive.py
 
       - name: Validate preview package dependency closure controls
-        run: python3 eng/tests/test_preview_package_closure.py -v
+        run: |
+          python3 eng/tests/test_preview_package_closure.py -v
+          python3 eng/tests/test_framework_package_source.py -v
 
       - name: Validate exact release native package staging
         run: python3 eng/tests/test_release_native_packages.py -v
@@ -602,6 +644,14 @@ jobs:
         with:
           ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           submodules: true
+
+      - name: Prepare exact framework source dependencies
+        shell: bash
+        run: |
+          python3 external/ProGPU/eng/progpu-prepare-framework-sources.py
+          echo "ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/" >> "${GITHUB_ENV}"
+          echo "LibreWpfSourceRoot=${GITHUB_WORKSPACE}/" >> "${GITHUB_ENV}"
+          echo "LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/" >> "${GITHUB_ENV}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

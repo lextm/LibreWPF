@@ -23,6 +23,21 @@ remain unchanged. WPF source tests and package construction use these explicit
 source owners; published package consumers still resolve the same IDs and exact
 versions.
 
+Package audits retain exact source provenance. Locally rebuilt Interop and Drawing
+packages identify the actual framework checkout commits. Packages staged from a
+qualified ProGPU producer identify the framework commits in that producer's
+committed `eng/framework-sources.json`, even when the consumer checkouts are newer.
+Previously published packages are checked against their original ProGPU ownership
+only when the selected historical producer actually contains the old project.
+Package snapshots retain which source mode produced their original bytes.
+
+Source CI prepares the producer's sparse dependencies before building and selects
+one aligned producer for WPF and Drawing. Explicit `ProGpuSourceRoot`,
+`LibreWpfSourceRoot` and `LibreWinFormsSourceRoot` MSBuild properties can select
+local coordinated checkouts. Use global MSBuild properties for custom roots so
+every dependency receives the same selection; both trailing and nontrailing
+directory separators are accepted.
+
 The full producer Build and WPF source/package/application gates remain required.
 A successful compatibility project build is not canonical WPF, native rendering,
 input or application qualification. Preserve original source history and every

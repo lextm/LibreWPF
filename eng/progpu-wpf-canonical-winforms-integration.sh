@@ -6,6 +6,9 @@ default_librewinforms_root="${repo_root}/external/LibreWinForms"
 default_progpu_root="${repo_root}/external/ProGPU"
 librewinforms_root="${PROGPU_WPF_CANONICAL_LIBREWINFORMS_ROOT:-${default_librewinforms_root}}"
 progpu_root="${PROGPU_WPF_CANONICAL_PROGPU_ROOT:-${default_progpu_root}}"
+export ProGpuSourceRoot="${progpu_root}/"
+export LibreWpfSourceRoot="${repo_root}/"
+export LibreWinFormsSourceRoot="${librewinforms_root}/"
 configuration="${CONFIGURATION:-Release}"
 target_framework="net10.0"
 canonical_support_package_version="${PROGPU_WPF_CANONICAL_SUPPORT_PACKAGE_VERSION:-10.0.10}"
@@ -53,6 +56,8 @@ if [[ -z "${librewinforms_progpu_commit}" || "${librewinforms_progpu_commit}" !=
   exit 1
 fi
 
+python3 "${progpu_root}/eng/progpu-prepare-framework-sources.py"
+
 dotnet_command="${repo_root}/.dotnet/dotnet"
 if [[ ! -x "${dotnet_command}" ]]; then
   dotnet_command="$(command -v dotnet || true)"
@@ -68,8 +73,9 @@ if [[ "${PROGPU_WPF_RUN_DRAWING_QUALITY_GATES:-1}" == "1" ]]; then
 
   echo "Running the pinned ProGPU System.Drawing quality and allocation gates..."
   "${dotnet_command}" test \
-    "${progpu_root}/src/System.Drawing.Common.Tests/System.Drawing.Common.Tests.csproj" \
+    "${librewinforms_root}/src/ProGPU.Drawing/System.Drawing.Common.Tests/System.Drawing.Common.Tests.csproj" \
     --configuration "${configuration}" \
+    -p:ProGpuSourceRoot="${progpu_root}/" \
     --verbosity minimal
 fi
 
