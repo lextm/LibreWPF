@@ -93,6 +93,19 @@ by the actual physical monitors before and after BitBlt. A monitor bounding box
 cannot hide an off-screen region or a gap between displays; changing monitor
 geometry during the capture fails explicitly.
 
+Before the first capture the driver validates the live, visible HWND against its
+launched PID and makes at most one ordinary
+[SetForegroundWindow request](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
+if that window is not already foreground. It records the request and observes
+the actual foreground HWND for at most one second inside the original60-second
+deadline. Rejection, changed ownership or failure to become foreground fails the
+run; no input-queue attachment, desktop-policy change or synthetic input is used.
+Both captures still require the exact foreground HWND before and after capture,
+and the second phase cannot request activation again. On a capture failure the
+driver gives the host its existing57-second cleanup reserve before terminating
+a hung owned process within the original outer budget. Original failed receipts
+remain evidence; these controls do not establish native-pointer qualification.
+
 ## Later execution requires explicit coordination and clipboard permission
 
 Do **not** invoke the following during the implementation/compile-only phase.

@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent
 
@@ -102,6 +103,112 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual("f1c9a6e709e0f7fcaf048f06074dbd7d2addcdc7576e82efe618632f433ee799",
                          files["Assets/ControlImages/Clipboard.png"]["sha256"])
         self.assertIn("Views/System/ClipboardPage.xaml.cs", files)
+
+
+class ForegroundTests(unittest.TestCase):
+    class NativeWindow:
+        def __init__(self, foreground=(9, 7), accepted=True):
+            self.foreground = iter(foreground)
+            self.last_foreground = 9
+            self.accepted = accepted
+            self.owner = 12
+            self.live = True
+            self.visible = True
+            self.iconic = False
+            self.requests = []
+
+        def IsWindow(self, hwnd): return self.live and hwnd == 7
+        def IsWindowVisible(self, hwnd): return self.visible
+        def IsIconic(self, hwnd): return self.iconic
+        def GetWindowThreadProcessId(self, hwnd, owner):
+            owner._obj.value = self.owner
+            return 1
+        def GetForegroundWindow(self):
+            self.last_foreground = next(self.foreground, self.last_foreground)
+            return self.last_foreground
+        def SetForegroundWindow(self, hwnd):
+            self.requests.append(hwnd)
+            return self.accepted
+
+    def desktop(self, **options):
+        desktop = probe.Desktop.__new__(probe.Desktop)
+        desktop.u = self.NativeWindow(**options)
+        return desktop
+
+    def prepare(self, desktop, record, snapshot=None, deadline=100):
+        desktop.prepare_foreground(snapshot or {"hwnd": 7, "pid": 12}, 12, deadline, record)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_already_foreground_does_not_request_activation(self, _):
+        desktop = self.desktop(foreground=(7, 7)); record = {}
+        self.prepare(desktop, record)
+        self.assertEqual([], desktop.u.requests)
+        self.assertEqual(7, record["after"])
+        self.assertFalse(record["requested"])
+
+    @patch.object(probe.time, "sleep")
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_one_request_waits_for_actual_cross_thread_foreground(self, _, sleep):
+        desktop = self.desktop(foreground=(9, 9, 7)); record = {}
+        self.prepare(desktop, record)
+        self.assertEqual([7], desktop.u.requests)
+        self.assertTrue(record["accepted"])
+        self.assertEqual(7, record["after"])
+        sleep.assert_called_once_with(0.025)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_foreign_dead_hidden_or_minimized_window_never_receives_request(self, _):
+        for name, value in (("owner", 13), ("live", False), ("visible", False), ("iconic", True)):
+            desktop = self.desktop(); setattr(desktop.u, name, value)
+            with self.subTest(name=name), self.assertRaises(RuntimeError):
+                self.prepare(desktop, {})
+            self.assertEqual([], desktop.u.requests)
+        desktop = self.desktop()
+        with self.assertRaisesRegex(RuntimeError, "snapshot PID"):
+            self.prepare(desktop, {}, {"hwnd": 7, "pid": 13})
+        self.assertEqual([], desktop.u.requests)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_rejected_request_is_retained_and_never_retried(self, _):
+        desktop = self.desktop(accepted=False); record = {}
+        with self.assertRaisesRegex(RuntimeError, "rejected"):
+            self.prepare(desktop, record)
+        self.assertEqual([7], desktop.u.requests)
+        self.assertFalse(record["accepted"])
+
+    @patch.object(probe.time, "sleep")
+    @patch.object(probe.time, "monotonic", side_effect=(20, 20, 20.5, 21))
+    def test_accepted_request_without_actual_foreground_stays_failure(self, _, sleep):
+        desktop = self.desktop(foreground=(9,)); record = {}
+        with self.assertRaisesRegex(RuntimeError, "budget"):
+            self.prepare(desktop, record)
+        self.assertEqual([7], desktop.u.requests)
+        self.assertEqual(9, record["after"])
+        sleep.assert_called_once_with(0.025)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_ownership_change_after_accepted_request_fails(self, _):
+        desktop = self.desktop()
+        def change_owner(hwnd):
+            desktop.u.requests.append(hwnd); desktop.u.owner = 13
+            return True
+        desktop.u.SetForegroundWindow = change_owner
+        with self.assertRaisesRegex(RuntimeError, "PID mismatch"):
+            self.prepare(desktop, {})
+        self.assertEqual([7], desktop.u.requests)
+
+    @patch.object(probe.time, "monotonic", return_value=98)
+    def test_outer_deadline_cannot_be_extended_by_activation(self, _):
+        desktop = self.desktop()
+        with self.assertRaisesRegex(RuntimeError, "original60-second"):
+            self.prepare(desktop, {})
+        self.assertEqual([], desktop.u.requests)
+
+    def test_later_capture_does_not_reactivate_a_background_window(self):
+        desktop = self.desktop(foreground=(9,))
+        with self.assertRaisesRegex(RuntimeError, "not foreground"):
+            desktop.geometry(7, 12)
+        self.assertEqual([], desktop.u.requests)
 
 
 class ProducerTests(unittest.TestCase):

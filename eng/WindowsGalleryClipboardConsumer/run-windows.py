@@ -78,6 +78,7 @@ class Desktop:
         bind(self.u, "GetWindowRect", W.BOOL, W.HWND, C.POINTER(W.RECT))
         bind(self.u, "ClientToScreen", W.BOOL, W.HWND, C.POINTER(W.POINT))
         bind(self.u, "GetForegroundWindow", W.HWND)
+        bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
         bind(self.u, "EnumWindows", W.BOOL, self.callback, W.LPARAM)
         bind(self.u, "EnumDisplayMonitors", W.BOOL, W.HDC, C.POINTER(W.RECT), self.monitor_callback, W.LPARAM)
         bind(self.u, "GetDC", W.HDC, W.HWND)
@@ -106,11 +107,36 @@ class Desktop:
         require_monitor_coverage(crop, result)
         return result
 
-    def geometry(self, hwnd, pid):
+    def owned_window(self, hwnd, pid):
         owner = W.DWORD()
         require(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd) and not self.u.IsIconic(hwnd), "owned window is not live/visible")
         require(self.u.GetWindowThreadProcessId(hwnd, C.byref(owner)) and owner.value == pid, "window PID mismatch")
-        require(self.u.GetForegroundWindow() == hwnd, "owned window is not foreground; no activation attempted")
+
+    def prepare_foreground(self, snapshot, pid, deadline, record):
+        require(snapshot["pid"] == pid, "foreground snapshot PID mismatch")
+        hwnd = snapshot["hwnd"]
+        self.owned_window(hwnd, pid)
+        require(time.monotonic() < deadline - 2, "original60-second run budget exhausted before activation")
+        record.update(hwnd=hwnd, pid=pid, before=self.u.GetForegroundWindow(), requested=False)
+        if record["before"] != hwnd:
+            record["requested"] = True
+            record["accepted"] = bool(self.u.SetForegroundWindow(hwnd))
+            require(record["accepted"], "Windows rejected the owned foreground request")
+        # Cross-thread activation may finish after SetForegroundWindow returns.
+        # Observe it within the original deadline; never attach input queues or
+        # retry the request, alter desktop policy, or synthesize user input.
+        activation_deadline = min(deadline - 2, time.monotonic() + 1)
+        while True:
+            self.owned_window(hwnd, pid)
+            record["after"] = self.u.GetForegroundWindow()
+            require(time.monotonic() < activation_deadline, "owned foreground activation did not complete within its budget")
+            if record["after"] == hwnd:
+                return
+            time.sleep(0.025)
+
+    def geometry(self, hwnd, pid):
+        self.owned_window(hwnd, pid)
+        require(self.u.GetForegroundWindow() == hwnd, "owned window is not foreground")
         r, p = W.RECT(), W.POINT()
         require(self.u.GetClientRect(hwnd, C.byref(r)) and self.u.ClientToScreen(hwnd, C.byref(p)), "native client query failed")
         return (p.x, p.y, r.right - r.left, r.bottom - r.top)
@@ -219,6 +245,9 @@ def main():
                     time.sleep(0.025)
                 snapshot = read_json(snapshot_path)
                 require(process.poll() is None, "host lifetime ended before capture")
+                if phase == "pasted":
+                    result["foregroundSetup"] = {}
+                    desktop.prepare_foreground(snapshot, process.pid, deadline, result["foregroundSetup"])
                 capture = desktop.capture(snapshot, process.pid, args.output / (phase + ".bmp"))
                 require(process.poll() is None and time.monotonic() < deadline - 2, "host lifetime/deadline changed during capture")
                 capture["phase"] = phase; capture["snapshot"] = snapshot
@@ -237,9 +266,17 @@ def main():
     finally:
         if process is not None:
             if process.poll() is None:
-                process.kill()
+                # On a capture failure let the original 57-second host reserve
+                # clear only its owned clipboard sequence and close the window.
+                # A hung host is still killed inside the unchanged outer budget.
+                try: process.wait(timeout=max(0.001, deadline - time.monotonic() - 1))
+                except subprocess.TimeoutExpired: process.kill()
                 try: process.wait(timeout=max(0.001, deadline - time.monotonic()))
                 except Exception as error: result["errors"].append("owned process cleanup: " + str(error))
+            host_result = args.output / "host-result.json"
+            if host_result.exists() and "host" not in result:
+                try: result["host"] = read_json(host_result)
+                except Exception as error: result["errors"].append("host cleanup receipt: " + str(error))
             result["exitCode"] = process.poll()
             result["ownedProcessExited"] = process.poll() is not None
             if not result["ownedProcessExited"]: result["errors"].append("owned process remains live")
