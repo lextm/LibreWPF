@@ -147,7 +147,13 @@ public sealed class WpfManagedProjectGraphTests
             "run: bash ./eng/progpu-wpf-visual-host-source.sh",
             "run: bash ./eng/progpu-wpf-popup-dismissal-source.sh",
         };
-        Assert.Equal(commands, job.Split('\n').Select(line => line.Trim())
+        Assert.Contains("name: Prepare exact framework source dependencies", job, StringComparison.Ordinal);
+        Assert.Contains("python3 external/ProGPU/eng/progpu-prepare-framework-sources.py", job, StringComparison.Ordinal);
+        Assert.Contains("ProGpuSourceRoot=${GITHUB_WORKSPACE}/external/ProGPU/", job, StringComparison.Ordinal);
+        Assert.Contains("LibreWpfSourceRoot=${GITHUB_WORKSPACE}/", job, StringComparison.Ordinal);
+        Assert.Contains("LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/", job, StringComparison.Ordinal);
+        AssertGuardBefore(job, "name: Prepare exact framework source dependencies", "uses: actions/setup-dotnet@v4");
+        Assert.Equal(new[] { "run: |" }.Concat(commands), job.Split('\n').Select(line => line.Trim())
             .Where(line => line.StartsWith("run:", StringComparison.Ordinal)).ToArray());
         foreach (string command in commands)
         {
@@ -10724,15 +10730,15 @@ public sealed class WpfManagedProjectGraphTests
             "ProGPU.Vector",
             "PathOpGeometrySolver.cs"));
         var presentationCoreGpuProvider = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "GpuProvider.cs"));
         var systemDrawingGpuProvider = File.ReadAllText(FindRepoPath(
             "external",
-            "ProGPU",
+            "LibreWinForms",
             "src",
+            "ProGPU.Drawing",
             "System.Drawing.Common",
             "GpuProvider.cs"));
         var skiaSharp = File.ReadAllText(FindRepoPath(
@@ -12524,39 +12530,34 @@ public sealed class WpfManagedProjectGraphTests
             "Media",
             "GlyphRun.cs");
         var proGpuPresentationCoreBrushPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "System",
             "Windows",
             "Media",
             "Brush.cs");
         var proGpuPresentationCoreGradientBrushesPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "System",
             "Windows",
             "Media",
             "GradientBrushes.cs");
         var proGpuPresentationCoreProjectPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "PresentationCore",
             "PresentationCore.csproj");
         var proGpuWindowsBaseProjectPath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "WindowsBase",
             "WindowsBase.csproj");
         var proGpuPresentationCoreFreezablePath = FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
+            "ProGPU.Compatibility",
             "WindowsBase",
             "System",
             "Windows",

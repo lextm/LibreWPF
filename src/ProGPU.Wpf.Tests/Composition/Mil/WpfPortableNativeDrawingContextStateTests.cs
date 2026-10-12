@@ -13,7 +13,7 @@ public sealed class WpfPortableNativeDrawingContextStateTests
         string interop = File.ReadAllText(FindRepoPath(
             "src", "ProGPU.Wpf.Interop", "PortableNativeDrawingContext.cs"));
         string graphics = File.ReadAllText(FindRepoPath(
-            "external", "ProGPU", "src", "System.Drawing.Common", "System", "Drawing", "Graphics.cs"));
+            "external", "LibreWinForms", "src", "ProGPU.Drawing", "System.Drawing.Common", "System", "Drawing", "Graphics.cs"));
         string host = File.ReadAllText(FindRepoPath(
             "src", "LibreWPF.WinFormsCompat", "WindowsFormsIntegration", "WindowsFormsHost.cs"));
         string hostProject = File.ReadAllText(FindRepoPath(
