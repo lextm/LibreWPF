@@ -13,18 +13,36 @@ internal static class GalleryClipboardApp
     [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();
     [DllImport("user32.dll")] private static extern bool OpenClipboard(nint owner);
     [DllImport("user32.dll")] private static extern bool CloseClipboard();
-    [DllImport("user32.dll")] private static extern int CountClipboardFormats();
+    [DllImport("user32.dll", SetLastError = true)] private static extern int CountClipboardFormats();
 
     [STAThread]
     private static int Main(string[] args)
     {
-        if (!OperatingSystem.IsWindows() || args.Length != 2 || args[0] != "--allow-replace-clipboard")
+        if (!OperatingSystem.IsWindows() || args.Length != 2 ||
+            (args[0] != "--allow-replace-clipboard" && args[0] != "--require-empty-ci-clipboard"))
             throw new InvalidOperationException("Actual Windows and explicit permission to replace existing clipboard contents are required; there is no all-format restore claim.");
+        bool requireEmptyCi = args[0] == "--require-empty-ci-clipboard";
+        if (requireEmptyCi && (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true" ||
+            Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted" ||
+            Environment.GetEnvironmentVariable("RUNNER_OS") != "Windows" ||
+            Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") != "wieslawsoltes/LibreWPF"))
+            throw new InvalidOperationException("Empty CI clipboard mode requires the LibreWPF GitHub-hosted Windows runner.");
         string output = Path.GetFullPath(args[1]);
         if (!Directory.Exists(output)) throw new DirectoryNotFoundException(output);
         if (!OpenClipboard(0)) throw new InvalidOperationException("Clipboard unavailable; existing contents were not inspected.");
         bool previouslyNonempty;
-        try { previouslyNonempty = CountClipboardFormats() != 0; }
+        uint initialSequence;
+        try
+        {
+            Marshal.SetLastPInvokeError(0);
+            int formats = CountClipboardFormats();
+            if (formats == 0 && Marshal.GetLastPInvokeError() != 0)
+                throw new InvalidOperationException("Clipboard format-count query failed.");
+            previouslyNonempty = formats != 0;
+            initialSequence = GetClipboardSequenceNumber();
+            if (requireEmptyCi && previouslyNonempty)
+                throw new InvalidOperationException("CI clipboard is nonempty; no contents were read or replaced.");
+        }
         finally { if (!CloseClipboard()) throw new InvalidOperationException("Clipboard preflight release failed."); }
 
         Application application = new();
@@ -64,7 +82,7 @@ internal static class GalleryClipboardApp
             }
             try { window.Close(); }
             catch (Exception cleanup) { errors.Add("window cleanup: " + cleanup); }
-            Save(output, "host-result.json", new { completed, errors, previouslyNonempty, elapsed = clock.Elapsed.TotalSeconds, clipboardRestored = false, qualification = "original Gallery action/source ownership; native captures admitted separately" });
+            Save(output, "host-result.json", new { completed, errors, previouslyNonempty, requireEmptyCi, initialSequence, elapsed = clock.Elapsed.TotalSeconds, clipboardRestored = false, qualification = "original Gallery action/source ownership; native captures admitted separately" });
             application.Shutdown(completed && errors.Count == 0 ? 0 : 1);
         }
         timer.Tick += (_, _) =>
@@ -83,6 +101,8 @@ internal static class GalleryClipboardApp
                     BitmapSource source = NamedImage("SourceImage").Source as BitmapSource ?? throw new InvalidOperationException("Original pack-resource image did not decode.");
                     expected = Rgb(source);
                     Require(source.PixelWidth == 72 && source.PixelHeight == 73, "Original PNG did not load.");
+                    Require(!requireEmptyCi || GetClipboardSequenceNumber() == initialSequence,
+                        "CI clipboard changed externally after the empty preflight; do not replace it.");
                     OriginalButton(page, "Copy Image to Clipboard").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     ownedSequence = GetClipboardSequenceNumber();
                     Owned();

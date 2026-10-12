@@ -1,0 +1,75 @@
+name: Original Gallery clipboard acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      head:
+        description: Exact fully qualified LibreWPF producer commit (40 hexadecimal characters)
+        required: true
+        type: string
+      build:
+        description: Complete successful LibreWPF Build run ID for this commit
+        required: true
+        type: string
+      docs:
+        description: Complete successful LibreWPF Docs run ID for this commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-gallery:
+    name: Original Gallery image clipboard on Windows 11 ARM64
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PRODUCER_HEAD: ${{ inputs.head }}
+      PRODUCER_BUILD: ${{ inputs.build }}
+      PRODUCER_DOCS: ${{ inputs.docs }}
+      CASE_ROOT: artifacts/gallery-clipboard-ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify unchanged capture and producer admission controls
+        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
+      - name: Prepare original consumer from whole successful producer
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
+            --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
+            --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run original captures with an empty disposable CI clipboard
+        shell: pwsh
+        run: |
+          python "$env:CASE_ROOT/consumer/run-windows.py" `
+            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
+            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain original receipts and captures for manual visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-clipboard-${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            artifacts/gallery-clipboard-ci/inputs/*.json
+            artifacts/gallery-clipboard-ci/consumer/preparation.json
+            artifacts/gallery-clipboard-ci/consumer/build.log
+            artifacts/gallery-clipboard-ci/consumer/source-manifest.json
+            artifacts/gallery-clipboard-ci/original/Assets/ControlImages/Clipboard.png
+            artifacts/gallery-clipboard-ci/original/LICENSE
+            artifacts/gallery-clipboard-ci/runtime/**

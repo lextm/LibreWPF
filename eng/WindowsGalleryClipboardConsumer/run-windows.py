@@ -140,22 +140,35 @@ class Desktop:
                 else: raise RuntimeError(message)
 
 
+def clipboard_mode(allow_replace, require_empty_ci, environment):
+    require(allow_replace != require_empty_ci, "Select explicit clipboard replacement permission or the empty GitHub-hosted CI clipboard mode.")
+    if require_empty_ci:
+        require(environment.get("GITHUB_ACTIONS") == "true"
+                and environment.get("RUNNER_ENVIRONMENT") == "github-hosted"
+                and environment.get("RUNNER_OS") == "Windows"
+                and environment.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF",
+                "Empty CI clipboard mode requires the LibreWPF GitHub-hosted Windows runner.")
+        return "--require-empty-ci-clipboard"
+    return "--allow-replace-clipboard"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--allow-replace-clipboard", action="store_true")
+    parser.add_argument("--require-empty-ci-clipboard", action="store_true")
     args = parser.parse_args()
-    require(args.allow_replace_clipboard, "Root must first obtain explicit permission to replace existing clipboard contents; this probe cannot restore all formats.")
+    mode = clipboard_mode(args.allow_replace_clipboard, args.require_empty_ci_clipboard, os.environ)
     require(args.app.is_file(), "missing apphost")
     args.output.mkdir()
     started = time.monotonic(); deadline = started + 60
-    result = {"qualified": False, "status": "failed", "captures": [], "errors": [], "appSha256": hashlib.sha256(args.app.read_bytes()).hexdigest()}
+    result = {"qualified": False, "status": "failed", "captures": [], "errors": [], "clipboardMode": mode, "appSha256": hashlib.sha256(args.app.read_bytes()).hexdigest()}
     process = None
     try:
         desktop = Desktop()
         with (args.output / "stdout.log").open("xb") as stdout, (args.output / "stderr.log").open("xb") as stderr:
-            process = subprocess.Popen([str(args.app.resolve()), "--allow-replace-clipboard", str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent)
+            process = subprocess.Popen([str(args.app.resolve()), mode, str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent)
             result["pid"] = process.pid
             for phase in ("pasted", "retained"):
                 snapshot_path = args.output / (phase + ".json")

@@ -20,6 +20,26 @@ probe = load("gallery_probe", "run-windows.py")
 
 
 class AdmissionTests(unittest.TestCase):
+    def test_manual_clipboard_replacement_still_requires_explicit_selection(self):
+        self.assertEqual("--allow-replace-clipboard", probe.clipboard_mode(True, False, {}))
+        for allow, empty in ((False, False), (True, True)):
+            with self.subTest(allow=allow, empty=empty), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(allow, empty, {})
+
+    def test_empty_ci_mode_rejects_local_self_hosted_and_foreign_runners(self):
+        environment = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted",
+                       "RUNNER_OS": "Windows", "GITHUB_REPOSITORY": "wieslawsoltes/LibreWPF"}
+        self.assertEqual("--require-empty-ci-clipboard", probe.clipboard_mode(False, True, environment))
+        for key in environment:
+            changed = dict(environment); changed.pop(key)
+            with self.subTest(missing=key), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(False, True, changed)
+        for key, value in (("RUNNER_ENVIRONMENT", "self-hosted"), ("RUNNER_OS", "Linux"),
+                           ("GITHUB_REPOSITORY", "another/repository")):
+            changed = dict(environment); changed[key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                probe.clipboard_mode(False, True, changed)
+
     def snapshot(self):
         return {"pid": 12, "frame": 2, "client": [-500, 20, 400, 300], "image": [-480, 60, 198, 198]}
 

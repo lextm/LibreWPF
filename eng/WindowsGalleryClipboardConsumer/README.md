@@ -61,8 +61,31 @@ PresentationFramework, WindowsBase, WinCore, PresentationNative, bridge, interop
 and native engine. `preparation.json` and `build.log` retain failures; even a
 successful compile keeps `qualified:false` and `applicationExecuted:false`.
 
-Build staging is separate from the existing shared Showcase gates. This initial
-acceptance addition does not change any workflow, gate, timeout or product code.
+Build staging is separate from the existing shared Showcase gates. The preparer
+does not change their gates, timeouts or product code.
+
+## Disposable Windows CI execution
+
+The opt-in `Original Gallery clipboard acceptance` workflow runs this same
+consumer on a fresh GitHub-hosted Windows11 ARM64 runner. Supply the exact
+qualified LibreWPF head and its whole successful Build and Docs run IDs. It
+checks out that head, fetches the original digest-bound package archive and the
+twelve pinned upstream files, and invokes the same preparer and capture runner.
+It never selects the latest successful job or substitutes source DLLs.
+
+This workflow uses `--require-empty-ci-clipboard`. Both runner and host require
+the repository's GitHub-hosted Windows environment; the host rejects a nonempty
+clipboard without reading its contents. Its sequence must remain unchanged
+from the empty preflight until the original copy action. Existing sequence
+ownership checks still govern all subsequent writes and cleanup. This mode
+does not authorize replacing a local or self-hosted machine's clipboard.
+
+The original60-second deadline, whole-image visibility, foreground/window
+ownership, unobstructed desktop capture, exact retained-image comparison and
+original page handlers remain unchanged. Uploaded receipts and native captures
+still require manual review against the original PNG. A completed probe keeps
+`qualified:false`; routed button events do not establish native-pointer input
+qualification. An unavailable desktop or changed clipboard fails the run.
 
 ## Later execution requires explicit coordination and clipboard permission
 
