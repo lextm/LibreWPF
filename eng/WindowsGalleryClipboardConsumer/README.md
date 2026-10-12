@@ -133,10 +133,18 @@ of every intervening obstruction.
 
 ## Authored checks and current status
 
-`test_contract.py` contains seventeen authored offline tests: the reused
+The current twenty-three offline admission tests pass, including the original
+seventeen controls, all three required bootstrap jobs, empty-CI clipboard
+selection and complete physical-monitor coverage. The updated C# host also
+compiled against a retained whole-qualified producer with zero errors and six
+original-source nullable warnings. These checks do not execute the application
+or qualify clipboard or desktop behavior. The opt-in CI workflow still requires
+a complete qualified producer and review of its original native captures.
+
+The initial `test_contract.py` contained seventeen authored offline tests: the reused
 native-geometry admission controls and new complete-producer rejection controls.
-These are not app or clipboard validation and have not been executed in the
-current compile-only phase. All three initial Python files were syntax-compiled
+These were not app or clipboard validation and were not executed in the
+initial compile-only phase. All three initial Python files were syntax-compiled
 at commit14092e1a8 without importing/executing the fixture. The explicit RID-layout
 command and fixed first-run environment subsequently completed both real installed
 consumer builds; the offline source-contract tests themselves remain unexecuted.
@@ -159,7 +167,7 @@ Both subsequent builds used the explicit first-run overrides above and emitted n
 certificate-generation banner. The consumer has not been executed; no new desktop evidence is claimed. Original package CI
 coverage remains separate from this exact Gallery acceptance case.
 
-The currently identified qualified input is PR217 head
+The initial identified qualified input was PR217 head
 `45b1cffaa47c3c5e4eb7fe05c938c977886128aa`, whole Build36604077464 and
 Docs36604077406. Its package artifact11053355676 is118464911 bytes with SHA256
 `24c794bb80c975aad4b58a7c3072b3fb74e3c22d1e4359fc6648a691050d648d`.
