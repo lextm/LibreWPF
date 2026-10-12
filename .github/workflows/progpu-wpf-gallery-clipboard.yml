@@ -35,10 +35,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.head }}
+      - name: Read the exact original consumer compiler
+        id: consumer-compiler
+        shell: pwsh
+        run: |
+          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
+          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "The qualified source must declare an exact compiler version."
+          }
+          "version=$compiler" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
-          dotnet-version: 10.0.x
+          # global-json-file honors latestFeature and installs a newer SDK;
+          # prepare.py deliberately disables roll-forward for this consumer.
+          dotnet-version: |
+            10.0.x
+            ${{ steps.consumer-compiler.outputs.version }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
