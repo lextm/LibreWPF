@@ -121,6 +121,9 @@ jobs:
       - name: Validate SDK public desktop property contracts
         run: python3 eng/tests/test_wpf_sdk_desktop_properties.py --dotnet dotnet -v
 
+      - name: Validate native shim target runtime selection
+        run: python3 eng/tests/test_wpf_sdk_win32_compat.py --dotnet dotnet -v
+
       - name: Validate canonical native staging contract
         run: python3 eng/tests/test_canonical_native_staging.py -v
 

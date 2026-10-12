@@ -673,8 +673,12 @@
     <ProGpuWpfWin32CompatCompiler Condition="'$(ProGpuWpfWin32CompatCompiler)' == ''">cc</ProGpuWpfWin32CompatCompiler>
     <_ProGpuWpfWin32CompatSource>$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.Win32Compat.c</_ProGpuWpfWin32CompatSource>
     <_ProGpuWpfWin32CompatIntermediateDirectory>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'obj', '$(Configuration)', '$(TargetFramework)', 'ProGPU.Wpf.Sdk.Win32Compat'))</_ProGpuWpfWin32CompatIntermediateDirectory>
-    <_ProGpuWpfWin32CompatOutput Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(_ProGpuWpfWin32CompatIntermediateDirectory)/ProGPU.Wpf.Sdk.Win32Compat.dylib</_ProGpuWpfWin32CompatOutput>
-    <_ProGpuWpfWin32CompatOutput Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(_ProGpuWpfWin32CompatIntermediateDirectory)/ProGPU.Wpf.Sdk.Win32Compat.so</_ProGpuWpfWin32CompatOutput>
+    <!-- Windows targets use their operating system's Win32 libraries. The build
+         host must not inject its Mach-O/ELF shims into a Windows application.
+         TargetFramework remains Windows-shaped for ordinary portable apps, so
+         only an explicit Windows runtime identifier selects this exclusion. -->
+    <_ProGpuWpfWin32CompatOutput Condition="$([MSBuild]::IsOSPlatform('OSX')) And !$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">$(_ProGpuWpfWin32CompatIntermediateDirectory)/ProGPU.Wpf.Sdk.Win32Compat.dylib</_ProGpuWpfWin32CompatOutput>
+    <_ProGpuWpfWin32CompatOutput Condition="$([MSBuild]::IsOSPlatform('Linux')) And !$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">$(_ProGpuWpfWin32CompatIntermediateDirectory)/ProGPU.Wpf.Sdk.Win32Compat.so</_ProGpuWpfWin32CompatOutput>
     <_ProGpuWpfWin32CompatCompileCommand Condition="$([MSBuild]::IsOSPlatform('OSX'))">&quot;$(ProGpuWpfWin32CompatCompiler)&quot; -dynamiclib -O2 -fvisibility=hidden -o &quot;$(_ProGpuWpfWin32CompatOutput)&quot; &quot;$(_ProGpuWpfWin32CompatSource)&quot;</_ProGpuWpfWin32CompatCompileCommand>
     <_ProGpuWpfWin32CompatCompileCommand Condition="$([MSBuild]::IsOSPlatform('Linux'))">&quot;$(ProGpuWpfWin32CompatCompiler)&quot; -shared -fPIC -O2 -fvisibility=hidden -o &quot;$(_ProGpuWpfWin32CompatOutput)&quot; &quot;$(_ProGpuWpfWin32CompatSource)&quot;</_ProGpuWpfWin32CompatCompileCommand>
   </PropertyGroup>
