@@ -16,6 +16,17 @@ REPOSITORY = "wieslawsoltes/LibreWPF"
 spec = importlib.util.spec_from_file_location("gallery_prepare", ROOT / "prepare.py")
 prepare = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prepare)
+BOOTSTRAP_JOBS = {
+    "SDK bootstrap ownership (ubuntu-24.04)",
+    "SDK bootstrap ownership (windows-2025)",
+    "SDK bootstrap ownership (macos-15)",
+}
+
+
+def validate_ci_producer(build, docs, artifact, head, build_id, docs_id):
+    prepare.validate_producer(build, docs, artifact, head, build_id, docs_id)
+    prepare.require(BOOTSTRAP_JOBS.issubset({job.get("name") for job in build["jobs"]}),
+                    "All three current SDK bootstrap jobs are required beside the original thirteen Build jobs")
 
 
 def gh_json(*arguments):
@@ -62,7 +73,7 @@ def main():
     prepare.require(len(selected) == 1, "One exact producer package archive required")
     artifact = gh_json("api", f"repos/{REPOSITORY}/actions/artifacts/{selected[0]['id']}")
     artifact_path = retain("artifact.json", artifact)
-    prepare.validate_producer(build, docs, artifact, args.head, args.build, args.docs)
+    validate_ci_producer(build, docs, artifact, args.head, args.build, args.docs)
     prepare.require(0 < artifact["size_in_bytes"] <= 2 * 1024**3, "Producer archive exceeds bound")
     archive = output / "qualified-packages.zip"
     with archive.open("xb") as stream:

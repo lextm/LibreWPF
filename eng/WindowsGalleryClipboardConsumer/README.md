@@ -68,13 +68,15 @@ does not change their gates, timeouts or product code.
 
 The opt-in `Original Gallery clipboard acceptance` workflow runs this same
 consumer on a fresh GitHub-hosted Windows11 ARM64 runner. Supply the exact
-qualified LibreWPF head and its whole successful Build and Docs run IDs. It
+qualified LibreWPF head and its whole successful Build and Docs run IDs. All
+sixteen current Build jobs are required, including the three SDK bootstrap
+hosts, and every additional reported job must succeed. It
 checks out that head, fetches the original digest-bound package archive and the
 twelve pinned upstream files, and invokes the same preparer and capture runner.
 It never selects the latest successful job or substitutes source DLLs.
 
 This workflow uses `--require-empty-ci-clipboard`. Both runner and host require
-the repository's GitHub-hosted Windows environment; the host rejects a nonempty
+the repository's [GitHub-hosted Windows environment](https://docs.github.com/en/actions/reference/workflows-and-actions/variables); the host rejects a nonempty
 clipboard without reading its contents. Its sequence must remain unchanged
 from the empty preflight until the original copy action. Existing sequence
 ownership checks still govern all subsequent writes and cleanup. This mode

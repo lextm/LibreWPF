@@ -17,6 +17,7 @@ def load(name, file):
 
 prepare = load("gallery_prepare", "prepare.py")
 probe = load("gallery_probe", "run-windows.py")
+prepare_ci = load("gallery_prepare_ci", "prepare-ci.py")
 
 
 class AdmissionTests(unittest.TestCase):
@@ -115,6 +116,20 @@ class ProducerTests(unittest.TestCase):
 
     def test_whole_exact_producer_required(self):
         self.validate(self.receipts())
+
+    def test_ci_requires_every_current_bootstrap_job_beside_original_inventory(self):
+        receipts = self.receipts()
+        with self.assertRaisesRegex(ValueError, "three current SDK bootstrap"):
+            prepare_ci.validate_ci_producer(*receipts, "1" * 40, 1, 2)
+        bootstrap = [dict(name=name, status="completed", conclusion="success")
+                     for name in sorted(prepare_ci.BOOTSTRAP_JOBS)]
+        receipts[0]["jobs"].extend(bootstrap)
+        prepare_ci.validate_ci_producer(*receipts, "1" * 40, 1, 2)
+        for name in prepare_ci.BOOTSTRAP_JOBS:
+            incomplete = copy.deepcopy(receipts)
+            incomplete[0]["jobs"] = [job for job in incomplete[0]["jobs"] if job["name"] != name]
+            with self.subTest(missing=name), self.assertRaisesRegex(ValueError, "three current SDK bootstrap"):
+                prepare_ci.validate_ci_producer(*incomplete, "1" * 40, 1, 2)
 
     def test_additional_jobs_must_also_succeed(self):
         receipts = self.receipts()
