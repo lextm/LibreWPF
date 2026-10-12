@@ -13295,8 +13295,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<FileVersion Condition=\"'$(FileVersion)' == ''\">0.1.0.0</FileVersion>", proGpuDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<AssemblyOriginatorKeyFile Condition=\"'$(AssemblyOriginatorKeyFile)' == ''\">$(ProGPUStrongNameKeyFile)</AssemblyOriginatorKeyFile>", proGpuDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<None Include=\"$(MSBuildThisFileDirectory)README.md\" Pack=\"true\" PackagePath=\"\\\" Visible=\"false\" />", proGpuDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ManagePackageVersionsCentrally Condition=\"'$(MSBuildProjectName)' != 'ACadSharp'\">true</ManagePackageVersionsCentrally>", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
-        Assert.Contains("<ManagePackageVersionsCentrally Condition=\"'$(MSBuildProjectName)' == 'ACadSharp'\">false</ManagePackageVersionsCentrally>", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
+        Assert.Contains("<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
+        Assert.DoesNotContain("ACadSharp", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Silk.NET.WebGPU\" Version=\"2.23.0\" />", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Avalonia\" Version=\"", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.11.1\" />", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
