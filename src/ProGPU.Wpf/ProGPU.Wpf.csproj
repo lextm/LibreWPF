@@ -30,8 +30,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\Microsoft.Win32.SystemEvents\Microsoft.Win32.SystemEvents.csproj" PrivateAssets="all" Private="false" />
-    <ProjectReference Include="..\..\external\ProGPU\src\WindowsBase\WindowsBase.csproj" PrivateAssets="all" Private="false" />
-    <ProjectReference Include="..\..\external\ProGPU\src\PresentationCore\PresentationCore.csproj" PrivateAssets="all" Private="false" />
+    <ProjectReference Include="..\..\src\ProGPU.Compatibility\WindowsBase\WindowsBase.csproj" PrivateAssets="all" Private="false" />
+    <ProjectReference Include="..\..\src\ProGPU.Compatibility\PresentationCore\PresentationCore.csproj" PrivateAssets="all" Private="false" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPacking)' != 'true'">
@@ -42,7 +42,7 @@
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene.Native\ProGPU.Scene.Native.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 
   <Target Name="_ProGpuWpfRemoveNetCoreWindowsBaseFacade"

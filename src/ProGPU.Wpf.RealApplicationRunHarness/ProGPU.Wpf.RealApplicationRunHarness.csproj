@@ -17,7 +17,7 @@
     <PackageReference Include="System.Formats.Nrbf" Version="$(SystemFormatsNrbfVersion)" />
     <PackageReference Include="$(SystemIOPackagingPackage)" Version="$(SystemIOPackagingVersion)" />
     <PackageReference Include="System.Windows.Extensions" Version="$(SystemWindowsExtensionsPackageVersion)" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.WinRT\ProGPU.WinRT.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\ProGPU.Wpf.RealXamlCompilerHarness\ProGPU.Wpf.RealXamlCompilerHarness.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationCore\PresentationCore.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />

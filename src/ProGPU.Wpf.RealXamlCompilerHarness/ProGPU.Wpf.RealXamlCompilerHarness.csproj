@@ -55,6 +55,6 @@
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\WindowsBase\WindowsBase.csproj" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationCore\PresentationCore.csproj" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationFramework\PresentationFramework.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 </Project>

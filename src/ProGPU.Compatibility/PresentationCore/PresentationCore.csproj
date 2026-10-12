@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>PresentationCore</AssemblyName>
+    <RootNamespace>System.Windows</RootNamespace>
+    <ProGpuUseWindowsBaseShim>true</ProGpuUseWindowsBaseShim>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WindowsBase\WindowsBase.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Backend/ProGPU.Backend.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Vector/ProGPU.Vector.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Text/ProGPU.Text.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Scene/ProGPU.Scene.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/ProGPU.Layout/ProGPU.Layout.csproj" />
+    <ProjectReference Include="../../ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src/SkiaSharp/SkiaSharp.csproj" />
+  </ItemGroup>
+</Project>

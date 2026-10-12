@@ -1411,7 +1411,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\PresentationCore.csproj" />
     <ProjectReference Include="$(WpfSourceDir)DirectWriteForwarder\DirectWriteForwarder.vcxproj"
                       Condition="'$(OS)' == 'Windows_NT'">

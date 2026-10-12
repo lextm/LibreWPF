@@ -41,7 +41,7 @@ public sealed class WpfPortableD3DImageSourceTests
     public void D3DImageUsesTypedPointerFreeCanonicalMilSeam()
     {
         string interop = File.ReadAllText(FindRepoPath(
-            "external", "ProGPU", "src", "ProGPU.Wpf.Interop",
+            "src", "ProGPU.Wpf.Interop",
             "PortableD3DImageFrame.cs"));
         string image = File.ReadAllText(FindRepoPath(
             "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore",

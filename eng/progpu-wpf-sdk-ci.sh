@@ -316,8 +316,8 @@ stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Media.Scene/ProGPU.Medi
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.WinUI/ProGPU.WinUI.csproj" "ProGPU.WinUI"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Avalonia/ProGPU.Avalonia.csproj" "ProGPU.Avalonia"
 stage_or_pack_progpu_project "external/ProGPU/src/SkiaSharp/SkiaSharp.csproj" "ProGPU.SkiaSharp"
-stage_or_pack_progpu_project "external/ProGPU/src/System.Drawing.Common/System.Drawing.Common.csproj" "ProGPU.System.Drawing.Common"
-stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
+stage_or_pack_progpu_project "external/LibreWinForms/src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" "ProGPU.System.Drawing.Common"
+stage_or_pack_progpu_project "src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
 snapshot_staged_progpu_packages
 
 if [[ "${build_packages_only}" == "0" ]]; then

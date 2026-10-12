@@ -12,7 +12,7 @@ public sealed class WpfDrawingImageSourceContractTests
         var drawing = ReadRepoFile(
             "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore", "System", "Windows", "Media", "Drawing.cs");
         var drawingBoundsContract = ReadRepoFile(
-            "external", "ProGPU", "src", "ProGPU.Wpf.Interop", "PortableDrawingBounds.cs");
+            "src", "ProGPU.Wpf.Interop", "PortableDrawingBounds.cs");
         var drawingReplay = ReadRepoFile(
             "src", "ProGPU.Wpf", "Composition", "Mil", "WpfDrawingReplay.cs");
         var objectReplay = ReadRepoFile(

@@ -4,6 +4,11 @@
 
 This branch ports WPF onto the ProGPU/Silk.NET platform while reusing as much managed WPF code as possible. The public package brand is LibreWPF, with the custom SDK package `LibreWPF.Sdk`, so an existing WPF app can switch the project SDK and keep normal WPF source and XAML unchanged.
 
+LibreWPF owns the interop contracts and compile-time WindowsBase/PresentationCore
+compatibility projects. Portable Drawing belongs to LibreWinForms; core rendering
+belongs to ProGPU. See [framework source ownership](docs/framework-source-ownership.md)
+for source paths, exact dependency pins and unchanged package identities.
+
 Current focus areas:
 
 - Reuse WPF managed code for application model, dependency properties, layout, controls, data binding, documents, XAML, resources, themes, and the XAML compiler.

@@ -8,7 +8,7 @@ public sealed class WpfBitmapCacheSourceContractTests
     public void NativeMilBitmapCacheUsesTypedSourceContractWithoutReflection()
     {
         string contract = ReadRepoFile(
-            "external", "ProGPU", "src", "ProGPU.Wpf.Interop",
+            "src", "ProGPU.Wpf.Interop",
             "PortableBitmapCache.cs");
         string bitmapCache = ReadRepoFile(
             "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore",

@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
+    <LibreWinFormsSourceRoot Condition="'$(LibreWinFormsSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../../external/LibreWinForms'))</LibreWinFormsSourceRoot>
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../../external/ProGPU'))</ProGpuSourceRoot>
     <TargetFramework>net10.0</TargetFramework>
     <TargetFrameworkVersion>10.0</TargetFrameworkVersion>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -228,7 +228,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
     /// across all of them (e.g. wiring up System.Windows.Threading.Dispatcher.NativeInputPump -
     /// see that property's doc comment in WindowsBase for why a nested Dispatcher.PushFrame needs
     /// this). Deliberately takes no dependency on System.Windows.Threading itself: this project
-    /// only sees a minimal WPF-shaped compile-time stub (external/ProGPU/src/WindowsBase), not the
+    /// only sees a minimal WPF-shaped compile-time stub (src/ProGPU.Compatibility/WindowsBase), not the
     /// real Microsoft.DotNet.Wpf-based WindowsBase this actually runs against - the caller wiring
     /// Dispatcher.NativeInputPump has to be a project that references the real one instead.
     /// </summary>

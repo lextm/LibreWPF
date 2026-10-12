@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>WindowsBase</AssemblyName>
+    <RootNamespace>System.Windows</RootNamespace>
+    <AssemblyVersion>11.0.0.0</AssemblyVersion>
+    <FileVersion>11.0.0.0</FileVersion>
+  </PropertyGroup>
+</Project>

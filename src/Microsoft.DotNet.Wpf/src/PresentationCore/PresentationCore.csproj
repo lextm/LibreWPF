@@ -1485,7 +1485,7 @@
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationTypes\UIAutomationTypes.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationProvider\UIAutomationProvider.csproj" />
     <ProjectReference Include="..\..\..\..\external\ProGPU\src\ProGPU.WinRT\ProGPU.WinRT.csproj" />
-    <ProjectReference Include="..\..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\ref\PresentationCore-ref.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>

@@ -25,7 +25,7 @@
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationCore\PresentationCore.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationFramework\PresentationFramework.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <!-- The portable source theme supplies real inline/control styles (including

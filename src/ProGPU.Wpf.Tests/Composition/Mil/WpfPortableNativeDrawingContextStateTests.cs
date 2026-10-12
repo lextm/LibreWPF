@@ -11,7 +11,7 @@ public sealed class WpfPortableNativeDrawingContextStateTests
     public void LibreWinFormsDirectPaintKeepsOuterAndClientTransformsInImmutableGraphicsBase()
     {
         string interop = File.ReadAllText(FindRepoPath(
-            "external", "ProGPU", "src", "ProGPU.Wpf.Interop", "PortableNativeDrawingContext.cs"));
+            "src", "ProGPU.Wpf.Interop", "PortableNativeDrawingContext.cs"));
         string graphics = File.ReadAllText(FindRepoPath(
             "external", "ProGPU", "src", "System.Drawing.Common", "System", "Drawing", "Graphics.cs"));
         string host = File.ReadAllText(FindRepoPath(

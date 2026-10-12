@@ -16,7 +16,12 @@ if [[ ! -f "${librewinforms_root}/src/System.Windows.Forms/System.Windows.Forms.
   exit 1
 fi
 
-if [[ ! -f "${progpu_root}/src/System.Drawing.Common/System.Drawing.Common.csproj" ]]; then
+if [[ ! -f "${librewinforms_root}/src/ProGPU.Drawing/System.Drawing.Common/System.Drawing.Common.csproj" ]]; then
+  echo "The selected LibreWinForms revision must contain its owned portable Drawing project." >&2
+  exit 1
+fi
+
+if [[ ! -f "${progpu_root}/src/ProGPU.Backend/ProGPU.Backend.csproj" ]]; then
   echo "Initialize the external/ProGPU submodule before running the canonical integration gate." >&2
   exit 1
 fi
@@ -81,13 +86,13 @@ echo "Building canonical LibreWinForms runtime and design assemblies for ${targe
   -p:ContinuousIntegrationBuild=true
 
 winforms_assembly_root="${librewinforms_root}/artifacts/bin/System.Windows.Forms/${configuration}/${target_framework}/"
-progpu_interop_root="${progpu_root}/src/ProGPU.Wpf.Interop/bin/${configuration}/${target_framework}/"
+progpu_interop_root="${repo_root}/src/ProGPU.Wpf.Interop/bin/${configuration}/${target_framework}/"
 
 echo "Building the serialized LibreWPF managed foundation..."
 primitive_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Windows.Primitives/System.Windows.Primitives.csproj"
 system_xaml_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Xaml/System.Xaml.csproj"
 windows_base_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/WindowsBase/WindowsBase.csproj"
-progpu_interop_project="${progpu_root}/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj"
+progpu_interop_project="${repo_root}/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj"
 presentation_build_tasks_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
 system_printing_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Printing/ref/System.Printing-ref.csproj"
 presentation_framework_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationFramework/ref/PresentationFramework-ref.csproj"
@@ -269,12 +274,13 @@ echo "Packing the exact ProGPU drawing dependency closure..."
 PROGPU_CONFIGURATION="${configuration}" \
 PROGPU_PACKAGE_VERSION="${progpu_source_package_version}" \
 PROGPU_PACKAGE_OUTPUT="${canonical_package_output}" \
+LibreWinFormsSourceRoot="${librewinforms_root}/" \
 PROGPU_PACKAGE_GROUP=drawing-runtime \
   "${progpu_root}/eng/progpu-pack.sh"
 
 for package_spec in \
-  "src/ProGPU.DirectX/ProGPU.DirectX.csproj|ProGPU.DirectX" \
-  "src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj|LibreWPF.Interop"
+  "${progpu_root}/src/ProGPU.DirectX/ProGPU.DirectX.csproj|ProGPU.DirectX" \
+  "${repo_root}/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj|LibreWPF.Interop"
 do
   package_project="${package_spec%%|*}"
   package_id="${package_spec##*|}"
@@ -282,7 +288,7 @@ do
     "${canonical_package_output}/${package_id}.${progpu_source_package_version}.nupkg" \
     "${canonical_package_output}/${package_id}.${progpu_source_package_version}.snupkg"
   "${dotnet_command}" pack \
-    "${progpu_root}/${package_project}" \
+    "${package_project}" \
     --configuration "${configuration}" \
     --output "${canonical_package_output}" \
     --verbosity minimal \

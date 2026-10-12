@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <!-- ProGPU's pinned sparse checkout is external/LibreWPF; ordinary
+         LibreWPF checkouts continue to use their own pinned submodule. -->
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == '' And Exists('$(MSBuildThisFileDirectory)../../../eng/framework-sources.json') And Exists('$(MSBuildThisFileDirectory)../../../src/ProGPU.Backend/ProGPU.Backend.csproj')">$(MSBuildThisFileDirectory)../../../</ProGpuSourceRoot>
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$(MSBuildThisFileDirectory)../external/ProGPU/</ProGpuSourceRoot>
+    <ProGpuSourceRoot>$([MSBuild]::NormalizeDirectory('$(ProGpuSourceRoot)'))</ProGpuSourceRoot>
+    <DirectoryPackagesPropsPath>$(ProGpuSourceRoot)Directory.Packages.props</DirectoryPackagesPropsPath>
+    <RepositoryUrl>https://github.com/wieslawsoltes/LibreWPF</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/wieslawsoltes/LibreWPF</PackageProjectUrl>
+  </PropertyGroup>
+  <Import Project="$(ProGpuSourceRoot)Directory.Build.props" />
+  <ItemGroup>
+    <None Remove="$(ProGpuSourceRoot)README.md" />
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+</Project>

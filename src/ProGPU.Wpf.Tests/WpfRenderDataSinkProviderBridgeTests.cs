@@ -289,8 +289,6 @@ public sealed class WpfRenderDataSinkProviderBridgeTests
     public void NativeDrawingContextHandoffUsesTypedPortableSeamsWithoutReflection()
     {
         var interopSource = File.ReadAllText(FindRepoPath(
-            "external",
-            "ProGPU",
             "src",
             "ProGPU.Wpf.Interop",
             "PortableNativeDrawingContext.cs"));

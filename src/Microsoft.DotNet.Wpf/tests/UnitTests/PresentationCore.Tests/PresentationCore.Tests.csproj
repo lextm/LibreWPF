@@ -35,7 +35,7 @@
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationTypes\UIAutomationTypes.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationProvider\UIAutomationProvider.csproj" />
     <ProjectReference Include="$(WpfSourceDir)Extensions\PresentationFramework-SystemDrawing\PresentationFramework-SystemDrawing.csproj" />
-    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 
   <ItemGroup>
