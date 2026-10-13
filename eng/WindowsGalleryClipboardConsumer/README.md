@@ -82,6 +82,21 @@ from the empty preflight until the original copy action. Existing sequence
 ownership checks still govern all subsequent writes and cleanup. This mode
 does not authorize replacing a local or self-hosted machine's clipboard.
 
+The [original run38478934066](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38478934066)
+completed preparation and pasted the original image, then correctly rejected its
+physical bounds `[79,577,275,775]` on the runner's1024×768 desktop. The retained
+failure has no image captures and is not visual qualification. The workflow now
+prepares the disposable desktop before launching the unchanged900-DIP window:
+it selects the smallest sufficiently large mode actually enumerated by the
+display driver, preserving color depth, refresh rate, orientation, origin and DPI.
+It uses [ChangeDisplaySettingsExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-changedisplaysettingsexw)
+with a native validity preflight and one dynamic change, without persisting settings.
+Actual physical desktop/work-area readback is mandatory. The workflow always
+restores the exact recorded original mode after the app exits; runner, session,
+device and mode identity must still match. Both receipts are uploaded. Unsupported
+modes fail setup; this does not crop/resize the app or image, relax monitor coverage,
+change capture coordinates, or extend the original60-second runtime limit.
+
 The private diagnostic host uses console output type with WinExe inference
 disabled. It no longer creates a second console over the application. The original
 hosted run at `044a1461019c52fb9fd747e096036d7763a3fe3f` failed before either capture:

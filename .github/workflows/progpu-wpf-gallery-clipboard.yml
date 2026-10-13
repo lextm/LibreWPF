@@ -68,12 +68,23 @@ jobs:
         run: |
           python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Fit the original window on the disposable physical desktop
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/prepare-hosted-display.py prepare --receipt "$env:CASE_ROOT/hosted-display.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run original captures with an empty disposable CI clipboard
         shell: pwsh
         run: |
           python "$env:CASE_ROOT/consumer/run-windows.py" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
             --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Restore the original disposable desktop mode
+        if: always()
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/prepare-hosted-display.py restore --receipt "$env:CASE_ROOT/hosted-display.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain original receipts and captures for manual visual review
         if: always()
@@ -92,3 +103,4 @@ jobs:
             ${{ env.CASE_ROOT }}/original/LICENSE
             ${{ env.CASE_ROOT }}/runtime/**
             ${{ env.CASE_ROOT }}/hosted-environment.json
+            ${{ env.CASE_ROOT }}/hosted-display*.json

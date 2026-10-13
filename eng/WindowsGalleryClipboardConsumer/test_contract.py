@@ -20,6 +20,66 @@ def load(name, file):
 prepare = load("gallery_prepare", "prepare.py")
 probe = load("gallery_probe", "run-windows.py")
 prepare_ci = load("gallery_prepare_ci", "prepare-ci.py")
+display_setup = load("gallery_display_setup", "prepare-hosted-display.py")
+
+
+class HostedDisplayTests(unittest.TestCase):
+    def mode(self, width=1024, height=768, **changes):
+        mode = display_setup.DevMode()
+        mode.size = 220; mode.fields = display_setup.REQUIRED_FIELDS
+        mode.width = width; mode.height = height; mode.bits = 32; mode.frequency = 60
+        for key, value in changes.items():
+            setattr(mode, key, value)
+        return mode
+
+    def test_original_offscreen_failure_stays_rejected(self):
+        original = {"pid": 5636, "frame": 3, "client": [50, 50, 884, 749],
+                    "image": [79.35616438356163, 577, 195.28767123287673, 198]}
+        crop = probe.admitted_crop(original, 5636, (50, 50, 884, 749))
+        self.assertEqual((79, 577, 275, 775), crop)
+        with self.assertRaisesRegex(RuntimeError, "entire image capture"):
+            probe.require_monitor_coverage(crop, [(0, 0, 1024, 768)])
+        probe.require_monitor_coverage(crop, [(0, 0, 1280, 1024)])
+
+    def test_smallest_actual_compatible_mode_selected(self):
+        modes = [self.mode(1920, 1080), self.mode(1280, 1024), self.mode(1280, 960)]
+        selected = display_setup.select_mode(self.mode(), modes, 96)
+        self.assertIs(modes[1], selected)
+        current = self.mode(1920, 1080)
+        self.assertIs(current, display_setup.select_mode(current, modes, 96))
+
+    def test_native_color_timing_orientation_and_position_are_preserved(self):
+        for key, value in (("bits", 24), ("frequency", 59), ("flags", 2),
+                           ("orientation", 1), ("fixedOutput", 1), ("x", 1), ("y", 1)):
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, "No enumerated mode"):
+                display_setup.select_mode(self.mode(), [self.mode(1920, 1080, **{key: value})], 96)
+
+    def test_dpi_requires_real_larger_mode_without_scaling_original_pixels(self):
+        with self.assertRaisesRegex(RuntimeError, "No enumerated mode"):
+            display_setup.select_mode(self.mode(), [self.mode(1280, 1024)], 144)
+        large = self.mode(1920, 1536)
+        self.assertIs(large, display_setup.select_mode(self.mode(), [large], 144))
+
+    def test_windows_abi_and_original_mode_round_trip(self):
+        self.assertEqual(220, display_setup.C.sizeof(display_setup.DevMode))
+        self.assertEqual(840, display_setup.C.sizeof(display_setup.DisplayDevice))
+        self.assertEqual(72, display_setup.DevMode.fields.offset)
+        self.assertEqual(172, display_setup.DevMode.width.offset)
+        self.assertEqual(184, display_setup.DevMode.frequency.offset)
+        original = bytes(self.mode()).hex()
+        self.assertEqual(original, bytes(display_setup.decode_mode(original)).hex())
+        for mode in (self.mode(driverExtra=4), self.mode(fields=0), self.mode(size=219)):
+            with self.subTest(mode=bytes(mode).hex()), self.assertRaises(RuntimeError):
+                display_setup.decode_mode(bytes(mode).hex())
+
+    def test_display_setup_rejects_every_missing_or_foreign_host_boundary(self):
+        environment = dict(display_setup.ENVIRONMENT)
+        display_setup.require_hosted(environment)
+        for key in environment:
+            for value in (None, "another-value"):
+                changed = dict(environment); changed[key] = value
+                with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                    display_setup.require_hosted(changed)
 
 
 class AdmissionTests(unittest.TestCase):
