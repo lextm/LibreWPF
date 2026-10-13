@@ -226,6 +226,13 @@ first and never replace its result. Launch only a fresh owned apphost, verify na
 architecture, retain OS exception handling and capture a bounded normal dump from
 the real stopped thread. Correlate PID/thread/code/address before publication;
 debugger controls and instrumented replays never qualify the original idle gate.
+Native-crash replay keeps renderer tracing and timed live snapshots disabled.
+Its explicit first-chance option captures at most one original non-null AV into
+a separate bounded normal dump, retaining operation, fault address, instruction,
+thread and intrinsic architecture. Continue ordinary OS exception handling;
+successful application recovery must remain success, never crash evidence.
+Keep first-chance, second-chance and exception-free snapshots distinct, with
+the original failed receipt and deadlines unchanged.
 An optional live-stack snapshot belongs only to that failed-run replay and the
 same owned child. Keep its exception-free normal dump, raw directory and receipt
 separate from crash evidence; require intrinsic architecture, PID and complete
