@@ -2224,6 +2224,8 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         var options = new WpfFileDialogOptions
         {
             Title = request.Title,
+            InitialDirectory = request.InitialDirectory,
+            DefaultDirectory = request.DefaultDirectory,
             SuggestedFileName = request.SuggestedItemName,
             FileTypePatterns = ReadFileDialogPatterns(request.Filter),
             AllowMultipleSelection = request.AllowMultipleSelection
