@@ -35,6 +35,17 @@ def gh_json(*arguments):
     return json.loads(result.stdout)
 
 
+def gh_job_log(job_id):
+    prepare.require(type(job_id) is int and job_id > 0, "Explicit producer job identity required")
+    # Current gh rejects ANSI-bearing logs even with redirected stdout. Keep the
+    # original bytes in a pipe for evidence; never render them in the terminal.
+    result = subprocess.run(["gh", "api", "--allow-escape-sequences",
+                             f"repos/{REPOSITORY}/actions/jobs/{job_id}/logs"],
+                            check=True, capture_output=True, timeout=120)
+    prepare.require(0 < len(result.stdout) <= 1024 * 1024, "original upload log exceeds bound")
+    return result.stdout
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--head", required=True)
@@ -84,12 +95,10 @@ def main():
         prepare.require(type(job_id) is int and job_id > 0, "explicit producer job identity required")
         job = gh_json("api", f"repos/{REPOSITORY}/actions/jobs/{job_id}")
         retain("producer-job.json", job)
-        result = subprocess.run(["gh", "api", f"repos/{REPOSITORY}/actions/jobs/{job_id}/logs"],
-                                check=True, capture_output=True, timeout=120)
-        prepare.require(0 < len(result.stdout) <= 1024 * 1024, "original upload log exceeds bound")
-        (inputs / "producer-job.log").write_bytes(result.stdout)
+        raw_log = gh_job_log(job_id)
+        (inputs / "producer-job.log").write_bytes(raw_log)
         upload_evidence = {"schema": "github-upload-log-v1", "job": job,
-                           "log": result.stdout.decode("utf-8-sig")}
+                           "log": raw_log.decode("utf-8-sig")}
         upload_path = retain("upload-evidence.json", upload_evidence)
     validate_ci_producer(build, docs, artifact, args.head, args.build, args.docs, upload_evidence)
     prepare.require(0 < artifact["size_in_bytes"] <= 2 * 1024**3, "Producer archive exceeds bound")

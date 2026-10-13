@@ -3,6 +3,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -385,6 +386,29 @@ class CiCaptionTests(unittest.TestCase):
 
 
 class ProducerTests(unittest.TestCase):
+    def test_original_ansi_log_is_captured_as_bytes_without_terminal_output(self):
+        original = b"\xef\xbb\xbf2026-10-13T21:33:06Z \x1b[32moriginal build output\x1b[0m\r\n"
+        with patch.object(prepare_ci.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, original, b"")) as run:
+            self.assertEqual(original, prepare_ci.gh_job_log(37))
+        command = run.call_args.args[0]
+        self.assertEqual(["gh", "api", "--allow-escape-sequences",
+                          "repos/wieslawsoltes/LibreWPF/actions/jobs/37/logs"], command)
+        self.assertEqual(dict(check=True, capture_output=True, timeout=120), run.call_args.kwargs)
+
+    def test_raw_upload_log_keeps_original_size_and_failure_gates(self):
+        for raw in (b"", b"x" * (1024 * 1024 + 1)):
+            with self.subTest(size=len(raw)), patch.object(prepare_ci.subprocess, "run",
+                    return_value=subprocess.CompletedProcess([], 0, raw, b"")), self.assertRaisesRegex(ValueError, "bound"):
+                prepare_ci.gh_job_log(37)
+        with patch.object(prepare_ci.subprocess, "run", side_effect=subprocess.CalledProcessError(1, ["gh"])), \
+                self.assertRaises(subprocess.CalledProcessError):
+            prepare_ci.gh_job_log(37)
+        with patch.object(prepare_ci.subprocess, "run") as run:
+            for job_id in (0, -1, "37", True):
+                with self.subTest(job_id=job_id), self.assertRaisesRegex(ValueError, "identity"):
+                    prepare_ci.gh_job_log(job_id)
+            run.assert_not_called()
+
     def test_private_build_disables_unrelated_first_run_side_effects(self):
         self.assertEqual({"DOTNET_GENERATE_ASPNET_CERTIFICATE": "false",
                           "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "false",

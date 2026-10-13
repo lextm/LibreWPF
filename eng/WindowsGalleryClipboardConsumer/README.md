@@ -263,7 +263,12 @@ upload evidence is rejected. API statuses are preserved, not rewritten to succes
 The actual downloaded archive must still match the original size and SHA256.
 
 The hosted fetcher retains the original individual-job response and raw log along
-with the validated receipt. Standalone preparation can supply that receipt through
+with the validated receipt. The producer log can include ANSI formatting; current
+GitHub CLI requires `--allow-escape-sequences` even when stdout is redirected.
+Only this log request enables the flag, capturing bytes into a pipe without
+terminal rendering or escape removal. The original 1 MiB bound, API failure
+handling and exact upload validation remain unchanged.
+Standalone preparation can supply that receipt through
 `--upload-evidence`; missing evidence still fails closed when the step is incomplete.
 All original Build/Docs, source-byte, clipboard, ownership, image and 60-second
 application checks remain mandatory. This metadata repair is not an application pass.
