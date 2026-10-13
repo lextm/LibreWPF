@@ -63,6 +63,11 @@ jobs:
             --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Close the identified disposable runner startup window
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run original captures with an empty disposable CI clipboard
         shell: pwsh
         run: |
@@ -85,3 +90,4 @@ jobs:
             ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
             ${{ env.CASE_ROOT }}/original/LICENSE
             ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/hosted-environment.json

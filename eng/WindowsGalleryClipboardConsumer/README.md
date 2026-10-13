@@ -233,3 +233,17 @@ image viewers or VM operations were executed during this compile-only preparatio
 
 Revalidate it when staging. A later producer requires explicit
 matching arguments and complete receipts, never an implicit latest-success lookup.
+
+### Hosted Windows startup window
+
+The Windows 11 ARM64 hosted image can start with a fullscreen “Microsoft account”
+CoreWindow owned by Windows `WWAHost.exe`. It obstructs Gallery’s real caption.
+The workflow now requests normal `WM_CLOSE` on that exact window before launching
+Gallery, after verifying the ordinary input desktop, native system-image path and
+same interactive session. Changed identity, an unknown foreground or refusal to
+close fails setup. No forced termination, sign-in, credentials, clipboard access,
+security setting or local/self-hosted input is involved. The original foreground,
+physical monitor, full-pixel, ownership and 60-second checks still run afterward.
+The successful startup close and native Gallery activation were observed in
+[run 38336623666](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38336623666);
+that run subsequently timed out without captures and remains a failed acceptance.
