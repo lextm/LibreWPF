@@ -415,6 +415,77 @@ class ProducerTests(unittest.TestCase):
     def test_whole_exact_producer_required(self):
         self.validate(self.receipts())
 
+    def stale_upload(self):
+        receipts = self.receipts()
+        producer = next(j for j in receipts[0]["jobs"] if j["name"] == "SDK package and no-source-change smoke")
+        producer.update(databaseId=37, steps=[{"name": "Upload CI package bundle", "status": "pending", "conclusion": None}])
+        artifact = receipts[2]
+        artifact.update(id=41, size_in_bytes=4096)
+        job = {"id": 37, "run_id": 1, "head_sha": "1" * 40, "name": producer["name"],
+               "workflow_name": "LibreWPF Build", "status": "completed", "conclusion": "success",
+               "started_at": "2026-10-13T20:39:04Z", "completed_at": "2026-10-13T20:58:07Z",
+               "steps": copy.deepcopy(producer["steps"])}
+        name, digest = artifact["name"], artifact["digest"].removeprefix("sha256:")
+        lines = ["##[group]Run actions/upload-artifact@v4", "with:", "  name: " + name,
+                 "  overwrite: false", "##[endgroup]", "Beginning upload of artifact content to blob storage",
+                 "SHA256 digest of uploaded artifact zip is " + digest,
+                 f"Artifact {name}.zip successfully finalized. Artifact ID 41",
+                 f"Artifact {name} has been successfully uploaded! Final size is 4096 bytes. Artifact ID is 41"]
+        log = "\n".join("2026-10-13T20:57:58.1000000Z " + line for line in lines)
+        return receipts, {"schema": "github-upload-log-v1", "job": job, "log": log}
+
+    def test_stale_upload_requires_exact_original_action_evidence(self):
+        receipts, evidence = self.stale_upload()
+        with self.assertRaises(ValueError):
+            self.validate(receipts)
+        prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+        producer = next(j for j in receipts[0]["jobs"] if j["name"] == evidence["job"]["name"])
+        self.assertEqual("pending", producer["steps"][0]["status"])
+        self.assertIsNone(producer["steps"][0]["conclusion"])
+
+    def test_upload_log_cannot_replace_a_failed_whole_build(self):
+        receipts, evidence = self.stale_upload()
+        receipts[0]["conclusion"] = "failure"
+        with self.assertRaises(ValueError):
+            prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+
+    def test_upload_log_cannot_replace_failed_skipped_or_duplicate_uploads(self):
+        for location in ("run", "job"):
+            for conclusion in ("failure", "cancelled", "skipped", "timed_out", "duplicate"):
+                receipts, evidence = self.stale_upload()
+                producer = next(j for j in receipts[0]["jobs"] if j["name"] == evidence["job"]["name"])
+                owner = producer if location == "run" else evidence["job"]
+                if conclusion == "duplicate": owner["steps"].append(copy.deepcopy(owner["steps"][0]))
+                else: owner["steps"][0].update(status="completed", conclusion=conclusion)
+                with self.subTest(location=location, conclusion=conclusion), self.assertRaises(ValueError):
+                    prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+
+    def test_upload_log_rejects_other_job_run_head_or_interval(self):
+        for field, value in (("id", 99), ("run_id", 99), ("head_sha", "3" * 40),
+                             ("name", "Another job"), ("conclusion", "failure"),
+                             ("completed_at", "2026-10-13T20:57:00Z")):
+            receipts, evidence = self.stale_upload(); evidence["job"][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+
+    def test_upload_log_rejects_wrong_artifact_digest_size_or_id(self):
+        for field, value in (("id", 42), ("size_in_bytes", 4097), ("digest", "sha256:" + "3" * 64)):
+            receipts, evidence = self.stale_upload(); receipts[2][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+
+    def test_upload_log_rejects_error_duplicate_or_unscoped_completion(self):
+        for mode in ("error", "duplicate", "unscoped", "reordered", "overwrite", "missing"):
+            receipts, evidence = self.stale_upload(); original = evidence["log"]
+            if mode == "error": evidence["log"] += "\n2026-10-13T20:57:59Z ##[error]Upload failed"
+            elif mode == "duplicate": evidence["log"] += "\n" + original
+            elif mode == "unscoped": evidence["log"] = original.replace("Run actions/upload-artifact@v4", "Run echo diagnostics")
+            elif mode == "reordered": evidence["log"] = "\n".join(original.splitlines()[:-3] + list(reversed(original.splitlines()[-3:])))
+            elif mode == "overwrite": evidence["log"] = original.replace("overwrite: false", "overwrite: true")
+            else: evidence["log"] = "\n".join(original.splitlines()[:-1])
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                prepare.validate_producer(*receipts, "1" * 40, 1, 2, evidence)
+
     def test_ci_requires_every_current_bootstrap_job_beside_original_inventory(self):
         receipts = self.receipts()
         with self.assertRaisesRegex(ValueError, "three current SDK bootstrap"):

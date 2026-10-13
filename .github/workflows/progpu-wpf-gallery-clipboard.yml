@@ -84,6 +84,7 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ env.CASE_ROOT }}/inputs/*.json
+            ${{ env.CASE_ROOT }}/inputs/*.log
             ${{ env.CASE_ROOT }}/consumer/preparation.json
             ${{ env.CASE_ROOT }}/consumer/build.log
             ${{ env.CASE_ROOT }}/consumer/source-manifest.json

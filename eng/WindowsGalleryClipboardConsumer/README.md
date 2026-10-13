@@ -247,3 +247,23 @@ physical monitor, full-pixel, ownership and 60-second checks still run afterward
 The successful startup close and native Gallery activation were observed in
 [run 38336623666](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38336623666);
 that run subsequently timed out without captures and remains a failed acceptance.
+
+### Stale Actions upload metadata
+
+GitHub can report a completed successful producer job while its step timeline
+still marks the upload pending. Run38467759739 stopped before application launch
+for this inconsistency in producer38462552210; the original failed receipts remain
+retained. Whole-run success alone does not qualify an upload.
+
+The preparer now accepts a separate original upload-log receipt only when the
+exact completed job/run/head and one non-overwriting `actions/upload-artifact@v4`
+action agree on the artifact name, ID, byte size, SHA256 and ordered completion
+timestamps inside that job. Failed, skipped, duplicate, unscoped or contradictory
+upload evidence is rejected. API statuses are preserved, not rewritten to success.
+The actual downloaded archive must still match the original size and SHA256.
+
+The hosted fetcher retains the original individual-job response and raw log along
+with the validated receipt. Standalone preparation can supply that receipt through
+`--upload-evidence`; missing evidence still fails closed when the step is incomplete.
+All original Build/Docs, source-byte, clipboard, ownership, image and 60-second
+application checks remain mandatory. This metadata repair is not an application pass.
