@@ -287,3 +287,15 @@ Standalone preparation can supply that receipt through
 `--upload-evidence`; missing evidence still fails closed when the step is incomplete.
 All original Build/Docs, source-byte, clipboard, ownership, image and 60-second
 application checks remain mandatory. This metadata repair is not an application pass.
+
+## Observing a failed capture
+
+The optional `diagnostic: true` dispatch input uses the exact whole-successful
+producer and unchanged prepared application/driver. It defaults to false.
+An observer from the workflow revision records actual, unobstructed full-client
+BitBlt pixels immediately before each original image capture, retaining uniform
+pixels as diagnostic evidence. It preserves the original capture call, failures,
+60-second deadline and clipboard/input policy. The observer may affect timing;
+its run is never acceptance or release qualification, including if the original
+assertions pass. Its run/job/artifact names and `diagnostic-run.json` explicitly
+identify it. Use ordinary acceptance with diagnostics disabled after a diagnosed fix.

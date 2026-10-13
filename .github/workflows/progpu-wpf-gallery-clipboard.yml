@@ -1,4 +1,5 @@
 name: Original Gallery clipboard acceptance
+run-name: "${{ inputs.diagnostic && 'Diagnostic only' || 'Acceptance' }} — Gallery ${{ inputs.head }}"
 
 on:
   workflow_dispatch:
@@ -15,6 +16,11 @@ on:
         description: Complete successful LibreWPF Docs run ID for this commit
         required: true
         type: string
+      diagnostic:
+        description: Record additional client pixels; this run cannot qualify a release
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -22,7 +28,7 @@ permissions:
 
 jobs:
   original-gallery:
-    name: Original Gallery image clipboard on Windows 11 ARM64
+    name: "${{ inputs.diagnostic && 'DIAGNOSTIC ONLY' || 'Acceptance' }} — original Gallery on Windows ARM64"
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -54,6 +60,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/checkout@v4
+        if: inputs.diagnostic
+        with:
+          ref: ${{ github.sha }}
+          path: .gallery-diagnostic-source
+          sparse-checkout: eng/WindowsGalleryClipboardConsumer
+          persist-credentials: false
+      - name: Verify observer preserves original failures
+        if: inputs.diagnostic
+        run: python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/test_diagnostics.py -v
       - name: Verify unchanged capture and producer admission controls
         run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
       - name: Prepare original consumer from whole successful producer
@@ -74,9 +90,19 @@ jobs:
           python eng/WindowsGalleryClipboardConsumer/prepare-hosted-display.py prepare --receipt "$env:CASE_ROOT/hosted-display.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run original captures with an empty disposable CI clipboard
+        if: ${{ !inputs.diagnostic }}
         shell: pwsh
         run: |
           python "$env:CASE_ROOT/consumer/run-windows.py" `
+            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
+            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe original failure pixels (never release qualification)
+        if: inputs.diagnostic
+        shell: pwsh
+        run: |
+          python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/diagnose-windows.py `
+            --driver "$env:CASE_ROOT/consumer/run-windows.py" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
             --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -90,7 +116,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-clipboard-${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gallery-clipboard-${{ inputs.diagnostic && 'diagnostic-' || '' }}${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
           if-no-files-found: warn
           path: |
