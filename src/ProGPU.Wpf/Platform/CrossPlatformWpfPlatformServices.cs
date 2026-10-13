@@ -23,7 +23,9 @@ public sealed class CrossPlatformWpfPlatformServices : IWpfPlatformServices
             new ProcessWpfClipboard(),
             new SilkNetWpfCursorService(),
             new QueuedWpfDispatcherService(),
-            new ProcessWpfFileDialogService(),
+            OperatingSystem.IsMacOS()
+                ? new MacOsWpfFileDialogService()
+                : new ProcessWpfFileDialogService(),
             new SilkNetWpfInputService(),
             new ProcessWpfMessageBoxService(),
             new ThreadPoolWpfTimerService(),

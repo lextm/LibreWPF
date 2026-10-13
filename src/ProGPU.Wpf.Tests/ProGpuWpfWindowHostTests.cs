@@ -660,7 +660,10 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.IsType<SilkNetWpfCursorService>(services.Cursors);
         Assert.IsType<QueuedWpfDispatcherService>(services.Dispatcher);
         Assert.IsType<SilkNetWpfDragDropService>(services.DragDrop);
-        Assert.IsType<ProcessWpfFileDialogService>(services.FileDialogs);
+        if (OperatingSystem.IsMacOS())
+            Assert.IsType<MacOsWpfFileDialogService>(services.FileDialogs);
+        else
+            Assert.IsType<ProcessWpfFileDialogService>(services.FileDialogs);
         Assert.IsType<SilkNetWpfInputService>(services.Input);
         Assert.IsType<ProcessWpfLauncher>(services.Launcher);
         Assert.IsType<ProcessWpfMessageBoxService>(services.MessageBoxes);
