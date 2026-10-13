@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Root-only actual desktop capture; never build, inject input, or restore guessed clipboard data."""
+"""Original desktop capture; one caption click is restricted to the disposable hosted CI mode."""
 import argparse
 import ctypes as C
 from ctypes import wintypes as W
@@ -12,6 +12,27 @@ import struct
 import subprocess
 import sys
 import time
+
+
+class MouseInput(C.Structure):
+    _fields_ = [("dx", C.c_int32), ("dy", C.c_int32), ("mouseData", C.c_uint32),
+                ("dwFlags", C.c_uint32), ("time", C.c_uint32), ("dwExtraInfo", C.c_size_t)]
+
+
+class InputData(C.Union):
+    _fields_ = [("mi", MouseInput)]
+
+
+class Input(C.Structure):
+    _anonymous_ = ("data",)
+    _fields_ = [("type", C.c_uint32), ("data", InputData)]
+
+
+class GuiThreadInfo(C.Structure):
+    _fields_ = [("cbSize", W.DWORD), ("flags", W.DWORD),
+                ("hwndActive", W.HWND), ("hwndFocus", W.HWND), ("hwndCapture", W.HWND),
+                ("hwndMenuOwner", W.HWND), ("hwndMoveSize", W.HWND), ("hwndCaret", W.HWND),
+                ("rcCaret", W.RECT)]
 
 
 def require(condition, message):
@@ -79,6 +100,14 @@ class Desktop:
         bind(self.u, "ClientToScreen", W.BOOL, W.HWND, C.POINTER(W.POINT))
         bind(self.u, "GetForegroundWindow", W.HWND)
         bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
+        bind(self.u, "WindowFromPoint", W.HWND, W.POINT)
+        bind(self.u, "GetCursorPos", W.BOOL, C.POINTER(W.POINT))
+        bind(self.u, "GetSystemMetrics", C.c_int, C.c_int)
+        bind(self.u, "GetAsyncKeyState", C.c_int16, C.c_int)
+        bind(self.u, "GetGUIThreadInfo", W.BOOL, W.DWORD, C.POINTER(GuiThreadInfo))
+        bind(self.u, "SendMessageTimeoutW", C.c_ssize_t, W.HWND, W.UINT, C.c_size_t,
+             C.c_ssize_t, W.UINT, W.UINT, C.POINTER(C.c_size_t))
+        bind(self.u, "SendInput", W.UINT, W.UINT, C.POINTER(Input), C.c_int)
         bind(self.u, "EnumWindows", W.BOOL, self.callback, W.LPARAM)
         bind(self.u, "EnumDisplayMonitors", W.BOOL, W.HDC, C.POINTER(W.RECT), self.monitor_callback, W.LPARAM)
         bind(self.u, "GetDC", W.HDC, W.HWND)
@@ -111,6 +140,97 @@ class Desktop:
         owner = W.DWORD()
         require(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd) and not self.u.IsIconic(hwnd), "owned window is not live/visible")
         require(self.u.GetWindowThreadProcessId(hwnd, C.byref(owner)) and owner.value == pid, "window PID mismatch")
+
+    def caption_at(self, hwnd, pid, x, y):
+        self.owned_window(hwnd, pid)
+        require(-32768 <= x <= 32767 and -32768 <= y <= 32767,
+                "caption point cannot be represented by WM_NCHITTEST")
+        if self.u.WindowFromPoint(W.POINT(x, y)) != hwnd:
+            return False
+        hit = C.c_size_t()
+        require(self.u.SendMessageTimeoutW(hwnd, 0x84, 0, (x & 65535) | ((y & 65535) << 16),
+                                          0x22, 200, C.byref(hit)), "native caption hit-test failed")
+        return hit.value == 2  # HTCAPTION, never close/minimize/resize/client.
+
+    def require_idle_input(self):
+        info = GuiThreadInfo(); info.cbSize = C.sizeof(info)
+        require(self.u.GetGUIThreadInfo(0, C.byref(info)), "foreground input state unavailable")
+        require(not (info.flags & 0x1e) and not info.hwndCapture and not info.hwndMenuOwner
+                and not info.hwndMoveSize, "active native capture/menu/move prevents CI caption click")
+        require(not any(self.u.GetAsyncKeyState(key) & 0x8000
+                        for key in (1, 2, 4, 5, 6, 16, 17, 18, 91, 92)),
+                "held mouse button/modifier prevents CI caption click")
+
+    def activate_ci_caption(self, snapshot, pid, deadline, record, environment):
+        # This is not available to local/self-hosted runs, including the local
+        # clipboard-permission mode. No desktop policy or input queues change.
+        clipboard_mode(False, True, environment)
+        require(snapshot.get("pid") == pid and snapshot.get("frame", 0) > 0,
+                "foreign or unpresented CI activation target")
+        hwnd = snapshot["hwnd"]
+        self.owned_window(hwnd, pid)
+        require(time.monotonic() < deadline - 3, "original60-second budget exhausted before CI activation")
+        record.update(pid=pid, hwnd=hwnd, before=self.u.GetForegroundWindow(), clickCount=0)
+        if record["before"] == hwnd:
+            record["after"] = hwnd
+            return
+        self.require_idle_input()
+        rect, client_origin = W.RECT(), W.POINT()
+        require(self.u.GetWindowRect(hwnd, C.byref(rect)) and self.u.ClientToScreen(hwnd, C.byref(client_origin)),
+                "native caption geometry unavailable")
+        require(rect.top < client_origin.y and rect.right > rect.left, "native caption extent unavailable")
+        y = (rect.top + client_origin.y) // 2
+        point = None
+        for fraction in (2, 1, 3):
+            x = rect.left + (rect.right - rect.left) * fraction // 4
+            require(time.monotonic() < deadline - 3, "original60-second budget exhausted locating caption")
+            if self.caption_at(hwnd, pid, x, y):
+                self.monitors((x, y, x + 1, y + 1))
+                point = (x, y)
+                break
+        require(point is not None, "no unobstructed owned native caption point")
+        x, y = point
+        left, top, width, height = (self.u.GetSystemMetrics(i) for i in (76, 77, 78, 79))
+        require(0 < width <= 65536 and 0 < height <= 65536
+                and left <= x < left + width and top <= y < top + height,
+                "invalid virtual desktop mapping for native caption")
+        # Aim at the physical pixel center. Readback must match before pressing.
+        dx = ((x - left) * 65536 + 32768) // width
+        dy = ((y - top) * 65536 + 32768) // height
+        move = Input(); move.mi = MouseInput(dx, dy, 0, 0xc001, 0, 0)
+        record.update(point=[x, y], virtualDesktop=[left, top, width, height],
+                      absolutePoint=[dx, dy], inputSize=C.sizeof(Input))
+        require(C.sizeof(Input) == (40 if C.sizeof(C.c_void_p) == 8 else 28), "native INPUT ABI mismatch")
+        record["moveInserted"] = self.u.SendInput(1, C.byref(move), C.sizeof(Input))
+        require(record["moveInserted"] == 1, "CI caption pointer move rejected")
+        cursor = W.POINT()
+        movement_deadline = min(deadline - 3, time.monotonic() + 0.25)
+        while True:
+            require(self.u.GetCursorPos(C.byref(cursor)), "CI pointer readback failed")
+            if (cursor.x, cursor.y) == point:
+                break
+            require(time.monotonic() < movement_deadline, "CI pointer did not reach the exact physical caption point")
+            time.sleep(0.01)
+        self.require_idle_input()
+        require(time.monotonic() < deadline - 3 and self.caption_at(hwnd, pid, x, y),
+                "caption ownership or original budget changed before click")
+        buttons = (Input * 2)()
+        buttons[0].mi.dwFlags, buttons[1].mi.dwFlags = 2, 4
+        record["clickCount"] = 1
+        record["buttonEventsInserted"] = self.u.SendInput(2, buttons, C.sizeof(Input))
+        if record["buttonEventsInserted"] == 1:
+            # Release our own partially inserted press, retaining failure. This
+            # is cleanup only, not a second click or a retry-to-pass.
+            record["partialPressReleaseInserted"] = self.u.SendInput(1, C.byref(buttons[1]), C.sizeof(Input))
+        require(record["buttonEventsInserted"] == 2, "CI caption click was not inserted completely")
+        activation_deadline = min(deadline - 2, time.monotonic() + 1)
+        while True:
+            self.owned_window(hwnd, pid)
+            record["after"] = self.u.GetForegroundWindow()
+            require(time.monotonic() < activation_deadline, "CI caption click did not activate the owned window")
+            if record["after"] == hwnd:
+                return
+            time.sleep(0.025)
 
     def prepare_foreground(self, snapshot, pid, deadline, record, host_activation=None):
         require(snapshot["pid"] == pid, "foreground snapshot PID mismatch")
@@ -258,14 +378,24 @@ def main():
     try:
         desktop = Desktop()
         with (args.output / "stdout.log").open("xb") as stdout, (args.output / "stderr.log").open("xb") as stderr:
-            # GitHub's background command runner does not own foreground rights.
-            # Give the console diagnostic host its normal new-console startup on
-            # the disposable CI desktop. Actual HWND/PID/foreground readback is
-            # still required; this flag never admits a background capture.
-            creation_flags = subprocess.CREATE_NEW_CONSOLE if args.require_empty_ci_clipboard else 0
+            # A second console can obstruct the actual application's caption.
+            # Hosted CI uses one verified caption click, not a foreground grant
+            # inferred from process/console creation.
+            creation_flags = 0
             result["processCreationFlags"] = creation_flags
             process = subprocess.Popen([str(args.app.resolve()), mode, str(args.output.resolve())], stdout=stdout, stderr=stderr, cwd=args.app.parent, creationflags=creation_flags)
             result["pid"] = process.pid
+            if args.require_empty_ci_clipboard:
+                target_path = args.output / "activation-target.json"
+                while not target_path.exists():
+                    require(process.poll() is None, "host exited before CI activation target")
+                    require(time.monotonic() < deadline - 3, "original60-second run budget exhausted before CI activation target")
+                    time.sleep(0.025)
+                result["ciActivation"] = {}
+                desktop.activate_ci_caption(read_json(target_path), process.pid, deadline,
+                                            result["ciActivation"], os.environ)
+                require(process.poll() is None, "host exited during CI activation")
+                (args.output / "activation-target.accepted").touch(exist_ok=False)
             for phase in ("pasted", "retained"):
                 snapshot_path = args.output / (phase + ".json")
                 while not snapshot_path.exists():

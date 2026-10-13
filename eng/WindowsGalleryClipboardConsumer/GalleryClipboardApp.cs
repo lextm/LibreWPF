@@ -65,6 +65,7 @@ internal static class GalleryClipboardApp
         BitmapSource? retained = null;
         byte[]? expected = null;
         bool completed = false;
+        bool activationTargetPublished = false;
         List<string> errors = new();
         DispatcherTimer timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(25) };
 
@@ -76,8 +77,10 @@ internal static class GalleryClipboardApp
             Require(IsWindowVisible(hwnd) && !IsIconic(hwnd), "Foreground target is hidden or minimized.");
             Require(clock.Elapsed.TotalSeconds < 55, "Original host budget exhausted before foreground setup.");
             nint before = GetForegroundWindow();
-            bool requested = before != hwnd;
-            bool accepted = !requested || SetForegroundWindow(hwnd);
+            // The disposable CI driver clicks the actual native caption first.
+            // A background application cannot grant itself foreground rights.
+            bool requested = before != hwnd && !requireEmptyCi;
+            bool accepted = before == hwnd || (requested && SetForegroundWindow(hwnd));
             nint after = GetForegroundWindow();
             GetWindowThreadProcessId(after, out uint foregroundPid);
             Save(output, "activation.json", new {
@@ -117,6 +120,17 @@ internal static class GalleryClipboardApp
                 Require(host.NativeWindowHandle.Kind == global::ProGPU.Backend.NativeWindowKind.Win32 && host.NativeWindowHandle.IsValid, "No real owned Win32 window.");
                 if (phase == 0)
                 {
+                    if (requireEmptyCi)
+                    {
+                        if (!activationTargetPublished)
+                        {
+                            Save(output, "activation-target.json", new {
+                                pid = Environment.ProcessId, hwnd = host.NativeWindowHandle.Handle.ToInt64(),
+                                frame = host.PresentedFrameCount, elapsed = clock.Elapsed.TotalSeconds });
+                            activationTargetPublished = true;
+                        }
+                        if (!File.Exists(Path.Combine(output, "activation-target.accepted"))) return;
+                    }
                     PrepareForeground(host.NativeWindowHandle.Handle);
                     var initialFrame = host.LastPresentedFrameState;
                     beforeScene = initialFrame.SceneChangeVersion;

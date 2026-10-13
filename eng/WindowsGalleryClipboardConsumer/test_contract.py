@@ -243,6 +243,147 @@ class ForegroundTests(unittest.TestCase):
         self.assertEqual([], desktop.u.requests)
 
 
+class CiCaptionTests(unittest.TestCase):
+    environment = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted",
+                   "RUNNER_OS": "Windows", "GITHUB_REPOSITORY": "wieslawsoltes/LibreWPF"}
+
+    class NativeWindow(ForegroundTests.NativeWindow):
+        def __init__(self):
+            super().__init__(foreground=(9,))
+            self.inputs = []
+            self.hit = 2
+            self.point_owner = 7
+            self.held = False
+            self.capture = False
+            self.button_count = 2
+            self.activate = True
+            self.cursor = (0, 0)
+
+        def GetGUIThreadInfo(self, thread, info):
+            info._obj.hwndCapture = 8 if self.capture else 0
+            return 1
+        def GetAsyncKeyState(self, key): return 0x8000 if self.held else 0
+        def GetWindowRect(self, hwnd, rect):
+            rect._obj.left, rect._obj.top, rect._obj.right, rect._obj.bottom = -500, 0, 400, 930
+            return 1
+        def ClientToScreen(self, hwnd, point):
+            point._obj.x, point._obj.y = -492, 40
+            return 1
+        def WindowFromPoint(self, point): return self.point_owner
+        def SendMessageTimeoutW(self, hwnd, message, wparam, lparam, flags, timeout, result):
+            result._obj.value = self.hit
+            return 1
+        def GetSystemMetrics(self, index): return {76: -500, 77: 0, 78: 1500, 79: 1000}[index]
+        def GetCursorPos(self, point):
+            point._obj.x, point._obj.y = self.cursor
+            return 1
+        def SendInput(self, count, values, size):
+            array = probe.C.cast(values, probe.C.POINTER(probe.Input))
+            self.inputs.append([array[i].mi.dwFlags for i in range(count)])
+            if array[0].mi.dwFlags == 0xc001:
+                self.cursor = (-500 + array[0].mi.dx * 1500 // 65536,
+                               array[0].mi.dy * 1000 // 65536)
+            if count == 2:
+                if self.activate:
+                    self.foreground = iter((7,))
+                return self.button_count
+            return count
+
+    def desktop(self):
+        desktop = probe.Desktop.__new__(probe.Desktop)
+        desktop.u = self.NativeWindow()
+        desktop.monitors = lambda crop: probe.require_monitor_coverage(crop, [(-500, 0, 1000, 1000)])
+        return desktop
+
+    def run_case(self, desktop, record=None, snapshot=None, environment=None):
+        record = {} if record is None else record
+        probe.Desktop.activate_ci_caption(desktop, snapshot or {"pid": 12, "hwnd": 7, "frame": 1}, 12, 100,
+                                          record, self.environment if environment is None else environment)
+        return record
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_one_caption_click_uses_exact_negative_physical_point_and_foreground_readback(self, _):
+        desktop = self.desktop()
+        record = self.run_case(desktop)
+        self.assertEqual([[0xc001], [2, 4]], desktop.u.inputs)
+        self.assertEqual([-50, 20], record["point"])
+        self.assertEqual((-50, 20), desktop.u.cursor)
+        self.assertEqual((1, 7), (record["clickCount"], record["after"]))
+        self.assertEqual([], desktop.u.requests)
+
+    def test_local_and_self_hosted_input_rejected_before_any_native_query(self):
+        for environment in ({}, dict(self.environment, RUNNER_ENVIRONMENT="self-hosted")):
+            with self.subTest(environment=environment), self.assertRaisesRegex(RuntimeError, "GitHub-hosted"):
+                self.run_case(None, environment=environment)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_foreign_unpresented_hidden_and_dead_targets_never_receive_input(self, _):
+        for snapshot in ({"pid": 13, "hwnd": 7, "frame": 1}, {"pid": 12, "hwnd": 7, "frame": 0}):
+            desktop = self.desktop()
+            with self.subTest(snapshot=snapshot), self.assertRaises(RuntimeError):
+                self.run_case(desktop, snapshot=snapshot)
+            self.assertEqual([], desktop.u.inputs)
+        for name, value in (("owner", 13), ("live", False), ("visible", False), ("iconic", True)):
+            desktop = self.desktop(); setattr(desktop.u, name, value)
+            with self.subTest(name=name), self.assertRaises(RuntimeError):
+                self.run_case(desktop)
+            self.assertEqual([], desktop.u.inputs)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_buttons_resize_client_obstruction_held_input_and_capture_rejected(self, _):
+        for name, value in (("hit", 20), ("hit", 9), ("hit", 12), ("hit", 1),
+                            ("point_owner", 8), ("held", True), ("capture", True)):
+            desktop = self.desktop(); setattr(desktop.u, name, value)
+            with self.subTest(name=name, value=value), self.assertRaises(RuntimeError):
+                self.run_case(desktop)
+            self.assertEqual([], desktop.u.inputs)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_caption_covered_after_move_never_receives_press(self, _):
+        desktop = self.desktop()
+        move = desktop.u.SendInput
+        def obstruct(*args):
+            result = move(*args)
+            desktop.u.point_owner = 8
+            return result
+        desktop.u.SendInput = obstruct
+        with self.assertRaisesRegex(RuntimeError, "caption ownership|caption.*changed"):
+            self.run_case(desktop)
+        self.assertEqual([[0xc001]], desktop.u.inputs)
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_partial_press_is_released_and_never_retried_or_accepted(self, _):
+        desktop = self.desktop(); desktop.u.button_count = 1
+        record = {}
+        with self.assertRaisesRegex(RuntimeError, "not inserted completely"):
+            self.run_case(desktop, record)
+        self.assertEqual([[0xc001], [2, 4], [4]], desktop.u.inputs)
+        self.assertEqual(1, record["partialPressReleaseInserted"])
+        self.assertEqual(1, record["clickCount"])
+
+    @patch.object(probe.time, "monotonic", return_value=20)
+    def test_already_foreground_does_not_inject_or_request(self, _):
+        desktop = self.desktop(); desktop.u.foreground = iter((7,))
+        record = self.run_case(desktop)
+        self.assertEqual([], desktop.u.inputs)
+        self.assertEqual(0, record["clickCount"])
+
+    @patch.object(probe.time, "monotonic", return_value=98)
+    def test_expired_original_deadline_never_receives_input(self, _):
+        desktop = self.desktop()
+        with self.assertRaisesRegex(RuntimeError, "budget"):
+            self.run_case(desktop)
+        self.assertEqual([], desktop.u.inputs)
+
+    @patch.object(probe.time, "sleep")
+    @patch.object(probe.time, "monotonic", side_effect=(20, 20, 20, 20, 20, 21))
+    def test_successfully_inserted_click_without_foreground_is_failure(self, _, sleep):
+        desktop = self.desktop(); desktop.u.activate = False
+        with self.assertRaisesRegex(RuntimeError, "did not activate"):
+            self.run_case(desktop)
+        self.assertEqual([[0xc001], [2, 4]], desktop.u.inputs)
+
+
 class ProducerTests(unittest.TestCase):
     def test_private_build_disables_unrelated_first_run_side_effects(self):
         self.assertEqual({"DOTNET_GENERATE_ASPNET_CERTIFICATE": "false",

@@ -83,17 +83,32 @@ ownership checks still govern all subsequent writes and cleanup. This mode
 does not authorize replacing a local or self-hosted machine's clipboard.
 
 The private diagnostic host uses console output type with WinExe inference
-disabled. Only the disposable CI mode launches it with `CREATE_NEW_CONSOLE`,
-giving it normal console startup instead of inheriting the background runner's
-console. This does not grant capture admission. The Gallery application makes
-the single ordinary foreground request from its own thread after its first actual
-frame and before touching the clipboard. `activation.json` retains the request
-and native HWND/PID/foreground readback. The capture driver requires that receipt
-and the same live foreground window; it never adds another request after the
-application's attempt. A rejected request remains a failure, even if another
-activation happens concurrently. No input
-injection, attached input queues or foreground-policy changes are used. The host
-remains the single owned child under the original60-second limit.
+disabled. It no longer creates a second console over the application. The original
+hosted run at `044a1461019c52fb9fd747e096036d7763a3fe3f` failed before either capture:
+Windows rejected the Gallery application's own foreground request. A new console
+and a request from the application thread do not establish foreground entitlement.
+The original failed receipts remain evidence in workflow `38328938035`.
+
+Only the empty **GitHub-hosted CI mode** now performs one native caption click
+after the application's first actual frame, before any original clipboard action.
+The host publishes its real HWND/PID; the driver checks live ownership, actual
+monitor coverage and `WM_NCHITTEST == HTCAPTION` at an unobstructed native point.
+It rejects close/minimize/resize/client areas, held mouse buttons/modifiers and
+active capture/menu/move state. An absolute virtual-desktop pointer move requires
+exact physical cursor readback and a second ownership/hit check before the one
+down/up pair. A partially inserted press is released and remains a failure; there
+is no second click or retry. This uses documented
+[SendInput](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput),
+[absolute mouse coordinates](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput)
+and [native caption hit testing](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-nchittest).
+
+Actual foreground readback is required before publishing the driver acknowledgment
+and again on the Gallery application thread. CI never adds a SetForegroundWindow
+request after the click. `receipt.json` retains the point, native mapping, input
+counts and before/after HWND; `activation.json` retains the app's independent
+readback. Local and self-hosted modes cannot select this input path. No input-queue
+attachment or desktop-policy change is used. The host remains the single owned
+child under the original60-second limit.
 
 The original60-second deadline, whole-image visibility, foreground/window
 ownership, unobstructed desktop capture, exact retained-image comparison and
@@ -107,13 +122,13 @@ cannot hide an off-screen region or a gap between displays; changing monitor
 geometry during the capture fails explicitly.
 
 Before the original clipboard action the application validates its visible HWND
-against its own PID and makes at most one ordinary
+against its own PID. In the separately permissioned local mode it makes at most one ordinary
 [SetForegroundWindow request](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
 if that window is not already foreground. It records the result and reads back
 the actual foreground HWND on the calling application thread. The host clock now
 starts at Main entry, including application/resource construction in its original
 57-second reserve. Rejection, changed ownership or failure to become foreground fails the
-run; no input-queue attachment, desktop-policy change or synthetic input is used.
+run. The local mode never synthesizes input; CI uses only the caption sequence above.
 Both captures still require the exact foreground HWND before and after capture,
 and the second phase cannot request activation again. On a capture failure the
 driver gives the host its existing57-second cleanup reserve before terminating
