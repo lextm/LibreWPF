@@ -132,6 +132,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--driver", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scene-observer", type=Path)
     args, original_arguments = parser.parse_known_args()
     driver = args.driver.resolve(strict=True)
     receipt = json.loads(driver.with_name("preparation.json").read_text())
@@ -143,6 +144,19 @@ def main():
     spec.loader.exec_module(module)
     module.Desktop.capture = observed_capture(module.Desktop.capture)
     trace_environment = {"PROGPU_WPF_TRACE_NATIVE_LOOP": "1", "PROGPU_WPF_TRACE_RENDER_SURFACE": "1"}
+    if args.scene_observer:
+        observer = args.scene_observer.resolve(strict=True)
+        observer_receipt = json.loads(observer.parents[3].joinpath("preparation.json").read_text())
+        observer_sha = hashlib.sha256(observer.read_bytes()).hexdigest()
+        if not observer_receipt.get("diagnosticOnly") or observer_sha != observer_receipt["dllSha256"]:
+            raise RuntimeError("Prepared scene observer identity mismatch")
+        existing = os.environ.get("DOTNET_STARTUP_HOOKS", "")
+        trace_environment.update({
+            "DOTNET_STARTUP_HOOKS": existing + (os.pathsep if existing else "") + str(observer),
+            "PROGPU_GALLERY_SCENE_OBSERVER_ROOT": str(args.output.resolve()),
+            "PROGPU_GALLERY_SCENE_OBSERVER_APP_SHA256": receipt["output"]["sha256"]["GalleryClipboardApp.exe"],
+            "PROGPU_NATIVE_TRACE_PICTURE_MASK": "1",
+        })
     os.environ.update(trace_environment)
     sys.argv = [str(driver), "--output", str(args.output), *original_arguments]
     record = {"qualified": False, "diagnosticOnly": True, "originalDriverSha256": digest,

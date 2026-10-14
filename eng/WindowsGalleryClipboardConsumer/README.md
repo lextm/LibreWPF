@@ -304,3 +304,15 @@ compares ordinary SRCCOPY with the documented CAPTUREBLT layered-window option,
 and enables the existing native-loop/render-surface trace only in this diagnostic
 process. Both captures retain their real pixels and timings. Neither the alternate
 capture nor trace metadata can substitute for ordinary acceptance pixels.
+
+After the identical white SRCCOPY/CAPTUREBLT failure, the separate diagnostic
+startup hook retains at most two original canonical scene byte arrays (32 MiB
+each) and at most 16 nonblocking completion observations on the actual renderer
+owner thread. It stops at second 55 within the original 60-second process bound.
+It does not render, alter a scene, inject input, change source assertions or
+replace application/package files. Existing startup hooks remain in order.
+Reflection is confined to this isolated observer to attach to the already loaded
+original application; no product reader or hot path uses it. Its temporary
+purpose ends when the blank presentation is diagnosed. Observer failures are
+retained separately and never become application exceptions or passing evidence.
+See the [.NET startup-hook contract](https://github.com/dotnet/runtime/blob/main/docs/design/features/host-startup-hook.md).

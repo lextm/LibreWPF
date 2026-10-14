@@ -84,6 +84,13 @@ jobs:
         run: |
           python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare separate scene observer (never release qualification)
+        if: inputs.diagnostic
+        shell: pwsh
+        run: |
+          python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/prepare-scene-observer.py `
+            --output "$env:CASE_ROOT/scene-observer" --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Fit the original window on the disposable physical desktop
         shell: pwsh
         run: |
@@ -103,6 +110,7 @@ jobs:
         run: |
           python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/diagnose-windows.py `
             --driver "$env:CASE_ROOT/consumer/run-windows.py" `
+            --scene-observer "$env:CASE_ROOT/scene-observer/bin/Release/net10.0/GallerySceneObserver.dll" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
             --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -130,3 +138,5 @@ jobs:
             ${{ env.CASE_ROOT }}/runtime/**
             ${{ env.CASE_ROOT }}/hosted-environment.json
             ${{ env.CASE_ROOT }}/hosted-display*.json
+            ${{ env.CASE_ROOT }}/scene-observer/preparation.json
+            ${{ env.CASE_ROOT }}/scene-observer/build.log
