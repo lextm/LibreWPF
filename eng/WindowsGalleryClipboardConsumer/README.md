@@ -3,9 +3,16 @@
 Capture readiness now requires an actual native submission-completion checkpoint
 for the exact source frame. A returned `SurfacePresent` call alone can precede
 GPU completion. See [the diagnosed race and completion contract](../../docs/native-presentation-completion.md).
-Every original image/action check and the 60-second controller/57-second host
-deadline remain required. This adds a completion precondition; it does not retry
-a failed capture or admit a uniform image.
+Every original image/action check remains required. The owner-approved preview69
+exception on 2026-10-14 permits a 90-second controller and 87-second host reserve;
+foreground setup still must finish before second 55. Both actual captures, exact
+retained RGB, clipboard actions, owned HWND/PID, real GPU completion, process exit
+and cleanup remain mandatory. No diagnostic observer runs in final acceptance.
+This completion precondition does not retry a failed capture or admit a uniform
+image. The original 60/57-second performance objective remains open in
+[issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117); approval alone
+does not qualify the app. Historical diagnostic sections below retain the limits
+under which their original runs failed.
 
 This opt-in Windows acceptance case hosts the original WPFGallery ClipboardPage,
 its ViewModel, ControlExample/PageHeader templates and **unchanged pack-resource
@@ -130,9 +137,9 @@ request after the click. `receipt.json` retains the point, native mapping, input
 counts and before/after HWND; `activation.json` retains the app's independent
 readback. Local and self-hosted modes cannot select this input path. No input-queue
 attachment or desktop-policy change is used. The host remains the single owned
-child under the original60-second limit.
+child under the approved 90-second limit.
 
-The original60-second deadline, whole-image visibility, foreground/window
+The approved 90-second deadline, whole-image visibility, foreground/window
 ownership, unobstructed desktop capture, exact retained-image comparison and
 original page handlers remain unchanged. Uploaded receipts and native captures
 still require manual review against the original PNG. A completed probe keeps
@@ -148,13 +155,13 @@ against its own PID. In the separately permissioned local mode it makes at most 
 [SetForegroundWindow request](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
 if that window is not already foreground. It records the result and reads back
 the actual foreground HWND on the calling application thread. The host clock now
-starts at Main entry, including application/resource construction in its original
-57-second reserve. Rejection, changed ownership or failure to become foreground fails the
+starts at Main entry, including application/resource construction in its approved
+87-second reserve. Rejection, changed ownership or failure to become foreground fails the
 run. The local mode never synthesizes input; CI uses only the caption sequence above.
 Both captures still require the exact foreground HWND before and after capture,
 and the second phase cannot request activation again. On a capture failure the
-driver gives the host its existing57-second cleanup reserve before terminating
-a hung owned process within the original outer budget. Original failed receipts
+driver gives the host its approved 87-second cleanup reserve before terminating
+a hung owned process within the 90-second outer budget. Original failed receipts
 remain evidence; these controls do not establish native-pointer qualification.
 
 ## Later execution requires explicit coordination and clipboard permission
@@ -178,8 +185,8 @@ verifies retained/frozen image ownership, captures the displayed image again,
 and republishes it through the original paste handler. External clipboard
 mutation fails without clearing or overwriting that new state.
 
-The existing Windows runner retains the original60-second total limit and
-57-second host cleanup reserve. It checks actual HWND/PID/foreground ownership,
+The Windows runner uses the approved 90-second total limit and
+87-second host cleanup reserve. It checks actual HWND/PID/foreground ownership,
 exact native/source client geometry without inferred scale/titlebar offsets,
 the entire visible image rectangle, and before/after obstruction inventories.
 It captures actual desktop pixels with BitBlt, never source pixels as a substitute.

@@ -21,8 +21,14 @@ The receipt retains the exact frame, submission and recovery identity. The
 capture driver rejects absent or mismatched completion metadata and still takes
 one actual desktop capture per phase, enforcing every original pixel, foreground,
 window-ownership, clipboard and physical-coordinate check. GPU completion does
-not prove desktop scanout. The original 57-second host reserve and 60-second
-controller deadline remain unchanged; a slow completed frame still fails.
+not prove desktop scanout. The owner approved a preview69 release exception on
+2026-10-14: a 90-second controller deadline and 87-second host reserve, retaining
+the 55-second foreground setup bound. The original 60/57-second performance
+target remains open in [LibreWPF #117](https://github.com/wieslawsoltes/LibreWPF/issues/117).
+All original captures, exact retained RGB, clipboard actions, owned HWND/PID,
+real completion, process exit and cleanup remain required. Acceptance uses no
+diagnostic observer, and a failed run is not retried until it passes. Earlier
+failed captures and traces remain failure evidence; approval is not qualification.
 The pinned Microsoft source files, original image and action sequence are unchanged.
 
 ## Design sources and scope

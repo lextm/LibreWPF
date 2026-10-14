@@ -100,8 +100,11 @@ See docs/native-pointer-host-transport.md.
 Native presentation checkpoints poll the exact live engine on its dispatcher
 thread and retain source-frame/device-recovery identity. Submitted-frame counts
 and SurfacePresent are not GPU completion or desktop scanout. Keep the original
-Gallery pixels, actions and 60-second deadline after the explicit completion
-precondition; no retry capture or timer-based completion. See
+Gallery pixels and actions after the explicit completion precondition; no retry
+capture or timer-based completion. The owner-approved preview69 exception allows
+a 90-second controller and 87-second host reserve, retaining the 55-second
+foreground setup bound and all captures, ownership, clipboard and cleanup checks.
+The original 60-second performance target remains open in LibreWPF #117. See
 docs/native-presentation-completion.md.
 
 LibreWPF work branches and pull requests target `progpu-rendering-port`, the

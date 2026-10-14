@@ -115,7 +115,7 @@ internal static class GalleryClipboardApp
         {
             try
             {
-                Require(clock.Elapsed < TimeSpan.FromSeconds(57), "Host reserve reached inside outer60-second deadline.");
+                Require(clock.Elapsed < TimeSpan.FromSeconds(87), "Approved host reserve reached inside outer90-second deadline.");
                 if (!ProGpuWpfDiagnostics.TryGetWindowHost(window, out var host) || host is null || !host.HasPresentedFrame) return;
                 Require(host.NativeWindowHandle.Kind == global::ProGPU.Backend.NativeWindowKind.Win32 && host.NativeWindowHandle.IsValid, "No real owned Win32 window.");
                 if (phase == 0)

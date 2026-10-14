@@ -66,6 +66,14 @@ Windows, macOS, and Linux are supported runtime targets. A Windows RID restores 
 
 The SDK also supplies the WPF markup compiler defaults and portable runtime-framework default needed by the current build lane, so applications do not need ProGPU-specific item includes, PresentationBuildTasks compatibility properties, or runtime-version pins.
 
+Cryptography support defaults to `System.Security.Cryptography.Xml` 10.0.13 for
+.NET 10 and 11.0.0-rc.2.26504.105 for the .NET 11 lane, including the corresponding
+transitive PKCS fix. These replace versions affected by the October 2026
+[XML](https://github.com/dotnet/runtime/security/advisories/GHSA-7hqp-7c5m-4vq6)
+and [PKCS](https://github.com/dotnet/runtime/security/advisories/GHSA-846f-f764-76mx)
+advisories. Ordinary and central package references use the same defaults;
+an explicit `ProGpuWpfSystemSecurityCryptographyXmlVersion` override remains honored.
+
 ```xml
 <Project Sdk="LibreWPF.Sdk/0.1.0-preview.69">
   <PropertyGroup>
