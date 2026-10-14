@@ -299,3 +299,8 @@ pixels as diagnostic evidence. It preserves the original capture call, failures,
 its run is never acceptance or release qualification, including if the original
 assertions pass. Its run/job/artifact names and `diagnostic-run.json` explicitly
 identify it. Use ordinary acceptance with diagnostics disabled after a diagnosed fix.
+The observer also records the owned window's native styles/display-affinity,
+compares ordinary SRCCOPY with the documented CAPTUREBLT layered-window option,
+and enables the existing native-loop/render-surface trace only in this diagnostic
+process. Both captures retain their real pixels and timings. Neither the alternate
+capture nor trace metadata can substitute for ordinary acceptance pixels.

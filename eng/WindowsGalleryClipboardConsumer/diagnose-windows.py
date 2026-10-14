@@ -2,16 +2,18 @@
 """Observe the unchanged acceptance driver. This run never qualifies a release."""
 import argparse
 import ctypes as C
+from ctypes import wintypes as W
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import struct
 import sys
 import time
 
 
-def capture_client(desktop, snapshot, pid, path):
+def capture_client(desktop, snapshot, pid, path, raster_operation=0x00CC0020):
     """Keep actual client pixels, including uniform failures, without source pixels."""
     hwnd = snapshot["hwnd"]
     desktop.owned_window(hwnd, pid)
@@ -37,8 +39,10 @@ def capture_client(desktop, snapshot, pid, path):
         if not old or old == C.c_void_p(-1).value:
             old = None
             raise RuntimeError("Diagnostic bitmap selection failed")
-        if not desktop.g.BitBlt(memory, 0, 0, width, height, dc, x, y, 0x00CC0020):
+        copy_started = time.monotonic()
+        if not desktop.g.BitBlt(memory, 0, 0, width, height, dc, x, y, raster_operation):
             raise RuntimeError("Diagnostic desktop BitBlt failed")
+        copy_seconds = time.monotonic() - copy_started
         if not desktop.g.SelectObject(memory, old):
             raise RuntimeError("Diagnostic bitmap deselection failed")
         old = None
@@ -46,8 +50,10 @@ def capture_client(desktop, snapshot, pid, path):
                              width * height * 4, 0, 0, 0, 0)
         info = C.create_string_buffer(header)
         pixels = C.create_string_buffer(width * height * 4)
+        read_started = time.monotonic()
         if desktop.g.GetDIBits(dc, bitmap, 0, height, pixels, info, 0) != height:
             raise RuntimeError("Diagnostic desktop pixels incomplete")
+        read_seconds = time.monotonic() - read_started
         if desktop.geometry(hwnd, pid) != client or desktop.monitors(crop) != monitors:
             raise RuntimeError("Diagnostic desktop geometry changed during capture")
         after = desktop.unobstructed(hwnd, crop)
@@ -55,8 +61,11 @@ def capture_client(desktop, snapshot, pid, path):
         data = struct.pack("<2sIHHI", b"BM", 54 + len(raw), 0, 0, 54) + header + raw
         with path.open("xb") as output:
             output.write(data)
-        rgb = bytes(value for i, value in enumerate(raw) if i % 4 != 3)
+        rgb = bytearray(width * height * 3)
+        rgb[0::3], rgb[1::3], rgb[2::3] = raw[0::4], raw[1::4], raw[2::4]
         return {"client": client, "crop": crop, "monitors": monitors,
+                "rasterOperation": raster_operation, "bitBltSeconds": copy_seconds,
+                "getDIBitsSeconds": read_seconds,
                 "zOrderBefore": before, "zOrderAfter": after,
                 "firstBgr": list(raw[:3]), "minimumRgbByte": min(rgb),
                 "maximumRgbByte": max(rgb), "distinctRgbBytes": len(set(rgb)),
@@ -74,7 +83,32 @@ def capture_client(desktop, snapshot, pid, path):
             else: raise error
 
 
-def observed_capture(original, observer=capture_client):
+def capture_details(desktop, snapshot, pid, path):
+    # Read-only diagnostics distinguish a blank client from an excluded layered
+    # presentation. Neither result replaces the original SRCCOPY capture.
+    desktop.owned_window(snapshot["hwnd"], pid)
+    hwnd = snapshot["hwnd"]
+    get_style = desktop.u.GetWindowLongPtrW
+    get_style.restype, get_style.argtypes = C.c_ssize_t, [W.HWND, C.c_int]
+    get_affinity = desktop.u.GetWindowDisplayAffinity
+    get_affinity.restype, get_affinity.argtypes = W.BOOL, [W.HWND, C.POINTER(W.DWORD)]
+    affinity = W.DWORD()
+    affinity_read = bool(get_affinity(hwnd, C.byref(affinity)))
+    metadata = {"style": get_style(hwnd, -16) & 0xffffffff,
+                "extendedStyle": get_style(hwnd, -20) & 0xffffffff,
+                "displayAffinityRead": affinity_read,
+                "displayAffinity": affinity.value if affinity_read else None}
+    result = capture_client(desktop, snapshot, pid, path)
+    result["window"] = metadata
+    try:
+        result["includingLayeredWindows"] = capture_client(
+            desktop, snapshot, pid, path.with_name(path.stem + ".captureblt.bmp"), 0x40CC0020)
+    except Exception as error:
+        result["includingLayeredWindowsError"] = str(error)
+    return result
+
+
+def observed_capture(original, observer=capture_details):
     def capture(desktop, snapshot, pid, path):
         record = {"qualified": False, "diagnosticOnly": True, "snapshot": snapshot,
                   "originalDeadlineSeconds": 60, "startedMonotonic": time.monotonic()}
@@ -108,10 +142,13 @@ def main():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.Desktop.capture = observed_capture(module.Desktop.capture)
+    trace_environment = {"PROGPU_WPF_TRACE_NATIVE_LOOP": "1", "PROGPU_WPF_TRACE_RENDER_SURFACE": "1"}
+    os.environ.update(trace_environment)
     sys.argv = [str(driver), "--output", str(args.output), *original_arguments]
     record = {"qualified": False, "diagnosticOnly": True, "originalDriverSha256": digest,
               "observerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-              "producer": receipt["head"], "originalDeadlineSeconds": 60}
+              "producer": receipt["head"], "originalDeadlineSeconds": 60,
+              "diagnosticEnvironment": trace_environment}
     print(json.dumps(record))
     try:
         code = module.main()
