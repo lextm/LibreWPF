@@ -318,3 +318,13 @@ original application; no product reader or hot path uses it. Its temporary
 purpose ends when the blank presentation is diagnosed. Observer failures are
 retained separately and never become application exceptions or passing evidence.
 See the [.NET startup-hook contract](https://github.com/dotnet/runtime/blob/main/docs/design/features/host-startup-hook.md).
+
+The separate `replay_scene_only: true` job (requiring `diagnostic: true`) diagnoses the demonstrated
+pending software-renderer submissions. It admits only the two original byte arrays
+and their exact retained diagnostic archive, then uses the same whole-qualified
+producer packages in a private copied runtime. A new typed entry point renders
+both original scenes offscreen on the same Windows software adapter, polls actual
+completion and retains real readback pixels and existing compute traces. It never
+launches Gallery or uses desktop input/clipboard. The process has a 60-second outer
+bound; neither offscreen pixels nor a successful replay qualifies the application.
+Original package/application files and all failed evidence remain unchanged.
