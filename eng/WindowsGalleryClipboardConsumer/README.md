@@ -309,6 +309,8 @@ After the identical white SRCCOPY/CAPTUREBLT failure, the separate diagnostic
 startup hook retains at most two original canonical scene byte arrays (32 MiB
 each) and at most 16 nonblocking completion observations on the actual renderer
 owner thread. It stops at second 55 within the original 60-second process bound.
+Completion polls are spaced at least one second apart, leaving the hook attached
+for the original pasted frame instead of exhausting its budget in the first second.
 It does not render, alter a scene, inject input, change source assertions or
 replace application/package files. Existing startup hooks remain in order.
 Reflection is confined to this isolated observer to attach to the already loaded

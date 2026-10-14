@@ -17,6 +17,7 @@ internal static class StartupHook
     private static readonly EventHandler Updated = (_, _) => Observe();
     private static readonly HashSet<long> frames = [];
     private static int polls;
+    private static double lastPollSeconds = double.NegativeInfinity;
 
     public static void Initialize()
     {
@@ -127,7 +128,12 @@ internal static class StartupHook
             }
             // The exact live renderer is polled on its creating thread, without waiting,
             // rendering, source mutation or using elapsed time as GPU completion.
-            if (polls >= 16) { Stop(); return; }
+            // Spread the bounded observations across the original run. Consuming
+            // all 16 on consecutive updates observes only the first second and
+            // detaches before the original pasted frame can be retained.
+            double now = Clock.Elapsed.TotalSeconds;
+            if (polls >= 16 || now - lastPollSeconds < 1) return;
+            lastPollSeconds = now;
             object renderer = host.GetType().GetField("_nativeMilCompositor", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(host)
                 ?? throw new MissingMemberException("Original native renderer is unavailable.");
             object token = renderer.GetType().GetMethod("GetLastSubmissionToken")!.Invoke(renderer, null)!;
