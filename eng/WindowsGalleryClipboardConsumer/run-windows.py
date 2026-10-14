@@ -47,6 +47,18 @@ def read_json(path):
     return json.loads(data)
 
 
+def require_gpu_completion(snapshot):
+    completion = snapshot.get("gpuCompletion")
+    require(isinstance(completion, dict), "no actual GPU completion receipt")
+    require(type(snapshot.get("frame")) is int
+            and type(completion.get("frame")) is int and 0 < completion["frame"] < 2**63
+            and completion["frame"] == snapshot.get("frame"), "GPU completion frame mismatch")
+    require(type(completion.get("submission")) is int and 0 < completion["submission"] < 2**64,
+            "invalid native submission identity")
+    require(type(completion.get("deviceRecovery")) is int and 0 <= completion["deviceRecovery"] < 2**63,
+            "invalid native device recovery identity")
+
+
 def admitted_crop(snapshot, pid, native_client):
     require(snapshot["pid"] == pid, "foreign snapshot PID")
     require(snapshot["frame"] > 0, "no presented native frame")
@@ -306,6 +318,7 @@ class Desktop:
         return examined
 
     def capture(self, snapshot, pid, path):
+        require_gpu_completion(snapshot)
         hwnd = snapshot["hwnd"]
         client = self.geometry(hwnd, pid)
         crop = admitted_crop(snapshot, pid, client)

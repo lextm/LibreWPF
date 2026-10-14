@@ -159,6 +159,11 @@ internal static class GalleryClipboardApp
                     if (host.PresentedFrameCount <= afterFrame && phase == 1) return;
                     var presented = host.LastPresentedFrameState;
                     if (phase == 1 && presented.SceneChangeVersion <= beforeScene && presented.RetainedWpfChangeVersion <= beforeRetained && presented.FlatDrawingChangeVersion <= beforeFlat) return;
+                    // A submitted frame can still be drawing. Keep the original
+                    // deadline and capture exactly once after real GPU completion.
+                    if (!ProGpuWpfDiagnostics.TryPollNativePresentationCheckpoint(window, out var completion)) return;
+                    Require(completion.PresentedFrame.PresentedFrameCount == host.PresentedFrameCount,
+                        "GPU completion belongs to another submitted frame.");
                     Image image = NamedImage("PastedImage");
                     Require(image.IsVisible && image.ActualWidth > 0 && image.ActualHeight > 0, "Pasted image is not visibly arranged.");
                     Point a = image.PointToScreen(new Point());
@@ -168,6 +173,9 @@ internal static class GalleryClipboardApp
                     Save(output, phase == 1 ? "pasted.json" : "retained.json", new {
                         pid = Environment.ProcessId, hwnd = host.NativeWindowHandle.Handle.ToInt64(),
                         frame = host.PresentedFrameCount, image = new[] { a.X, a.Y, b.X - a.X, b.Y - a.Y },
+                        gpuCompletion = new { frame = completion.PresentedFrame.PresentedFrameCount,
+                            submission = completion.Submission.Value,
+                            deviceRecovery = completion.PresentedFrame.DeviceRecoveryCount },
                         scene = presented.SceneChangeVersion, retained = presented.RetainedWpfChangeVersion, flat = presented.FlatDrawingChangeVersion,
                         client = new[] { clientA.X, clientA.Y, clientB.X - clientA.X, clientB.Y - clientA.Y },
                         rgbSha256 = Convert.ToHexString(SHA256.HashData(Rgb(retained!))),

@@ -1,5 +1,12 @@
 # Original Gallery clipboard-image acceptance
 
+Capture readiness now requires an actual native submission-completion checkpoint
+for the exact source frame. A returned `SurfacePresent` call alone can precede
+GPU completion. See [the diagnosed race and completion contract](../../docs/native-presentation-completion.md).
+Every original image/action check and the 60-second controller/57-second host
+deadline remain required. This adds a completion precondition; it does not retry
+a failed capture or admit a uniform image.
+
 This opt-in Windows acceptance case hosts the original WPFGallery ClipboardPage,
 its ViewModel, ControlExample/PageHeader templates and **unchanged pack-resource
 PNG** from microsoft/WPF-Samples commit

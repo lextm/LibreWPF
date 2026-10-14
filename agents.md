@@ -97,6 +97,13 @@ See docs/native-pointer-host-transport.md.
 
 ## Repository and branch ownership
 
+Native presentation checkpoints poll the exact live engine on its dispatcher
+thread and retain source-frame/device-recovery identity. Submitted-frame counts
+and SurfacePresent are not GPU completion or desktop scanout. Keep the original
+Gallery pixels, actions and 60-second deadline after the explicit completion
+precondition; no retry capture or timer-based completion. See
+docs/native-presentation-completion.md.
+
 LibreWPF work branches and pull requests target `progpu-rendering-port`, the
 default branch of `wieslawsoltes/LibreWPF`, not `main` or `dotnet/wpf`.
 Start new work from `origin/progpu-rendering-port` and explicitly select the fork

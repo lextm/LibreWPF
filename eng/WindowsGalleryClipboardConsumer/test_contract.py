@@ -104,7 +104,25 @@ class AdmissionTests(unittest.TestCase):
                 probe.clipboard_mode(False, True, changed)
 
     def snapshot(self):
-        return {"pid": 12, "frame": 2, "client": [-500, 20, 400, 300], "image": [-480, 60, 198, 198]}
+        return {"pid": 12, "frame": 2, "client": [-500, 20, 400, 300], "image": [-480, 60, 198, 198],
+                "gpuCompletion": {"frame": 2, "submission": 8, "deviceRecovery": 0}}
+
+    def test_capture_requires_real_completion_receipt_for_same_frame(self):
+        probe.require_gpu_completion(self.snapshot())
+        original = self.snapshot(); original.pop("gpuCompletion")
+        with self.assertRaisesRegex(RuntimeError, "completion receipt"):
+            probe.require_gpu_completion(original)
+        for value in (2.0, True, None):
+            changed = self.snapshot(); changed["frame"] = value
+            with self.subTest(sourceFrame=value), self.assertRaises(RuntimeError):
+                probe.require_gpu_completion(changed)
+        for key, values in {"frame": [0, 1, 3, True, None],
+                            "submission": [0, -1, True, 2**64, None],
+                            "deviceRecovery": [-1, True, 2**63, None]}.items():
+            for value in values:
+                changed = self.snapshot(); changed["gpuCompletion"][key] = value
+                with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                    probe.require_gpu_completion(changed)
 
     def test_exact_native_client_and_negative_origin(self):
         self.assertEqual((-480, 60, -282, 258), probe.admitted_crop(self.snapshot(), 12, (-500, 20, 400, 300)))
