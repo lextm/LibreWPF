@@ -368,7 +368,13 @@ namespace MS.Internal.Text.TextInterface
                 {
                     if (_systemFontCollection == null)
                     {
+                        long startTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
                         _systemFontCollection = FontCollection.FromUris(GetSystemFontUris(), _fontSourceFactory);
+                        if (Environment.GetEnvironmentVariable("LIBREWPF_TRACE_FONTS") != null)
+                        {
+                            Console.Error.WriteLine("LibreWPF system font collection built in " +
+                                System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds.ToString("0") + " ms");
+                        }
                     }
                 }
             }

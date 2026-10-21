@@ -856,19 +856,23 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _isHostVisible = showWindow && showActivated;
         }
         TraceNativeLoop("run initialization entering: " + CreateNativeLoopTraceState());
+        var startupTimer = System.Diagnostics.Stopwatch.StartNew();
         EnsureWindow();
-        TraceNativeLoop("native window ensured: " + CreateNativeLoopTraceState());
+        TraceNativeLoop("native window ensured in " + startupTimer.ElapsedMilliseconds + " ms: " + CreateNativeLoopTraceState());
         if (!_window!.IsInitialized)
         {
             TraceNativeLoop("native window initialize entering: " + CreateNativeLoopTraceState());
+            startupTimer.Restart();
             _window.Initialize();
-            TraceNativeLoop("native window initialize leaving: " + CreateNativeLoopTraceState());
+            TraceNativeLoop("native window initialize leaving after " + startupTimer.ElapsedMilliseconds + " ms: " + CreateNativeLoopTraceState());
         }
 
         if (showWindow)
         {
             _isHostVisible = true;
+            startupTimer.Restart();
             ShowNativeWindow(showActivated);
+            TraceNativeLoop("ShowNativeWindow took " + startupTimer.ElapsedMilliseconds + " ms");
         }
         if (continueRunning != null && _isHostVisible && continueRunning())
             BeginNativeDialogSession();
