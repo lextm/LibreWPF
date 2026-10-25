@@ -26,13 +26,56 @@ public sealed class PortableDisplayTextSourceTests
     }
 
     [PortableMediaFact]
+    public void MinMaxWidthDeclinesDisplayWithoutCapabilityInsteadOfThrowing()
+    {
+        var provider = new HintedOnlyProvider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp(TextFormattingMode.Display);
+        var source = new Source();
+        // Same decline as FormatLine: SimpleTextLine measures, the provider is never asked.
+        var widths = formatter.FormatMinMaxParagraphWidth(source, 0, new ParagraphProperties(source.Properties));
+        Assert.True(widths.MinWidth > 0, "SimpleTextLine measured real text, not a fabricated zero width");
+        Assert.True(widths.MaxWidth >= widths.MinWidth);
+        Assert.Equal(0, provider.Calls);
+    }
+
+    [PortableMediaFact]
+    public void DeclinedDisplayParagraphWiderThanTheLineFormatsToTheEndWithoutTheProvider()
+    {
+        var provider = new HintedOnlyProvider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp(TextFormattingMode.Display);
+        var source = new Source { Text = new string('a', 200) };
+        // A caller (TextBlock) keeps formatting from the end of the previous line, handing back that
+        // line's TextLineBreak. Every line of a declined paragraph stays on the compatibility path:
+        // none throws, none belongs to the provider, and together they cover the whole paragraph.
+        int first = 0, lines = 0;
+        TextLineBreak? previous = null;
+        while (first < source.Text.Length)
+        {
+            Assert.True(++lines <= 50, "formatting does not advance");
+            using var line = Format(formatter, source, first, 20, previous);
+            Assert.IsNotType<PortableTextLine>(line);
+            Assert.True(line.Length > 0, $"line {lines} at {first} made no progress");
+            first += line.Length;
+            previous = line.GetTextLineBreak();
+        }
+        Assert.True(lines >= 2, "the paragraph is wider than the line, so it spans several lines");
+        Assert.Equal(0, provider.Calls);
+    }
+
+    [PortableMediaFact]
     public void ExplicitHintingDoesNotAdmitOrdinaryDisplayOrCallIdeal()
     {
         var provider = new HintedOnlyProvider();
         using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
         using var formatter = new TextFormatterImp(TextFormattingMode.Display);
         var source = new Source();
-        Assert.Throws<PlatformNotSupportedException>(() => Format(formatter, source));
+        // The provider never owns the line (no Display capability, and explicit hinting is not
+        // Display): the formatter declines to its compatibility line instead of throwing, so one
+        // Display-mode control cannot take down a whole window's measure pass.
+        using var line = Format(formatter, source);
+        Assert.IsNotType<PortableTextLine>(line);
         Assert.Equal(0, provider.Calls);
     }
 

@@ -230,11 +230,26 @@ namespace MS.Internal.TextFormatting
                 if (lineLength != 0)
                     throw new PlatformNotSupportedException("Portable text does not support recreating optimal-break lines.");
 
-                textLine = PortableTextLine.Create(settings, firstCharIndex,
-                    RealToIdealFloor(paragraphWidth), textSource.PixelsPerDip);
-                if (textLine == null && OperatingSystem.IsWindows())
+                // Display text needs the provider's complete original-generation Display capability
+                // (PortableTextLine never infers its policies). A provider without it cannot own the
+                // line, so decline instead of failing the whole window's measure pass: the
+                // compatibility SimpleTextLine path below formats it. Continuations are not declined
+                // here - they only exist for lines a provider already owns.
+                if (settings.TextFormattingMode == TextFormattingMode.Display
+                    && settings.PreviousLineBreak?.PortableContinuation == null
+                    && PortableWpfServiceRegistry.TryGetTextFormatting(out var displayService)
+                    && displayService is not IPortableDisplayTextFormatting)
                 {
-                    throw MissingPortableTextFormattingProvider();
+                    textLine = null;
+                }
+                else
+                {
+                    textLine = PortableTextLine.Create(settings, firstCharIndex,
+                        RealToIdealFloor(paragraphWidth), textSource.PixelsPerDip);
+                    if (textLine == null && OperatingSystem.IsWindows())
+                    {
+                        throw MissingPortableTextFormattingProvider();
+                    }
                 }
             }
 
@@ -344,9 +359,15 @@ namespace MS.Internal.TextFormatting
 
             if (!IsNativeLineServicesAvailable)
             {
-                if (PortableWpfServiceRegistry.TryGetTextFormatting(out var service))
+                bool providerPresent = PortableWpfServiceRegistry.TryGetTextFormatting(out var service);
+                // Same decline as FormatLineInternal: a provider without the Display capability
+                // cannot measure Display text, so SimpleTextLine measures it below.
+                bool declineDisplay = providerPresent
+                    && settings.TextFormattingMode == TextFormattingMode.Display
+                    && service is not IPortableDisplayTextFormatting;
+                if (providerPresent && !declineDisplay)
                     return PortableTextLine.MeasureIntrinsicWidths(settings, firstCharIndex, textSource.PixelsPerDip, service);
-                if (OperatingSystem.IsWindows())
+                if (!providerPresent && OperatingSystem.IsWindows())
                     throw MissingPortableTextFormattingProvider();
 
                 TextLine simpleLine = SimpleTextLine.Create(
