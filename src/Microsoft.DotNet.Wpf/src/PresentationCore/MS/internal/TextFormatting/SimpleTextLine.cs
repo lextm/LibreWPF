@@ -1807,6 +1807,160 @@ namespace MS.Internal.TextFormatting
 
 
     /// <summary>
+    /// Composite-font style fallback for the simple (fast) text path on hosts without Windows Line Services.
+    /// When the run's own typeface has no glyph for its first character, the characters that lack one are
+    /// given to the first system typeface that has it, instead of declining the whole line. Declines for any
+    /// other reason (complex scripts, number substitution, ...) are left alone: only a missing glyph is handled.
+    /// <para>
+    /// This only runs where Line Services does not exist. There a line the registered provider does not take reaches
+    /// SimpleTextLine, and when SimpleTextLine returns null FormatLineInternal and the intrinsic-width path both throw
+    /// MissingPortableTextFormattingProvider, so a run declined here never had another outcome than that exception.
+    /// </para>
+    /// <para>
+    /// The run's TextRun becomes a TextCharacters over the same characters with the fallback typeface, so
+    /// SimpleTextLine.GetTextRunSpans reports that run (not the TextSource's) for those characters.
+    /// </para>
+    /// </summary>
+    internal static class PortableFontFallback
+    {
+        private static readonly string[] s_macOSFamilies =
+            { "Apple Symbols", "Menlo", "Helvetica Neue", "Lucida Grande", "Arial Unicode MS", "Geneva" };
+        private static readonly string[] s_otherFamilies =
+            { "DejaVu Sans", "Noto Sans Symbols2", "Noto Sans Symbols", "Noto Sans", "Liberation Sans", "FreeSans" };
+
+        // (code point, style, weight, stretch) -> the family that supplies it, or null when no candidate does. A negative
+        // answer is kept only when every candidate was actually examined, so a transient failure is not remembered.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(int, FontStyle, FontWeight, FontStretch), string> s_familyByKey = new();
+
+        internal static bool TryApply(
+            SimpleRun run,
+            CharacterBufferRange charBufferRange,
+            TextFormatterImp formatter,
+            int widthLeft,
+            bool emergencyWrap,
+            bool breakOnTabs,
+            double pixelsPerDip)
+        {
+            if (OperatingSystem.IsWindows() || charBufferRange.Length == 0) return false;
+
+            TextRunProperties properties = run.TextRun.Properties;
+            Typeface primary = properties.Typeface;
+            GlyphTypeface primaryGlyphs = primary.TryGetGlyphTypeface();
+            if (primaryGlyphs == null) return false;
+
+            IDictionary<int, ushort> primaryMap = primaryGlyphs.CharacterToGlyphMap;
+            int firstCodePoint = CodePointAt(charBufferRange, 0, out int firstUnits);
+            if (Supplies(primaryMap, firstCodePoint)) return false;   // not a missing glyph: leave the decline as it was
+
+            // The leading characters the primary typeface cannot supply: those are the ones that change font.
+            int missingLength = firstUnits;
+            while (missingLength < charBufferRange.Length)
+            {
+                char ch = charBufferRange[missingLength];
+                if (ch == TextStore.CharLineFeed || ch == TextStore.CharCarriageReturn || ch == TextStore.CharTab) break;
+                int codePoint = CodePointAt(charBufferRange, missingLength, out int units);
+                if (Supplies(primaryMap, codePoint)) break;
+                missingLength += units;
+            }
+
+            var key = (firstCodePoint, primary.Style, primary.Weight, primary.Stretch);
+            if (!s_familyByKey.TryGetValue(key, out string family))
+            {
+                family = FindFamily(firstCodePoint, primary, out bool examinedAll);
+                if (examinedAll) s_familyByKey[key] = family;
+            }
+            if (family == null) return false;
+
+            Typeface fallback = new Typeface(new FontFamily(family), primary.Style, primary.Weight, primary.Stretch);
+            var missingRange = new CharacterBufferRange(charBufferRange.CharacterBufferReference, missingLength);
+            if (!fallback.CheckFastPathNominalGlyphs(
+                    missingRange,
+                    run.EmSize,
+                    (float)pixelsPerDip,
+                    1.0,
+                    formatter.IdealToReal(widthLeft, pixelsPerDip),
+                    !emergencyWrap,
+                    false,
+                    CultureMapper.GetSpecificCulture(properties.CultureInfo),
+                    formatter.TextFormattingMode,
+                    false,
+                    breakOnTabs,
+                    out int fitLength) || fitLength <= 0)
+                return false;
+
+            // TextCharacters has no public constructor over a CharacterBufferReference, so the same characters are
+            // handed over as an array; the run keeps pointing at the original buffer through CharBufferReference.
+            var characters = new char[fitLength];
+            for (int i = 0; i < fitLength; i++) characters[i] = charBufferRange[i];
+
+            run.Length = fitLength;
+            run.TextRun = new TextCharacters(characters, 0, fitLength, new FallbackTypefaceProperties(properties, fallback));
+            return true;
+        }
+
+        private static string FindFamily(int codePoint, Typeface primary, out bool examinedAll)
+        {
+            examinedAll = true;
+            foreach (string name in OperatingSystem.IsMacOS() ? s_macOSFamilies : s_otherFamilies)
+            {
+                try
+                {
+                    var candidate = new Typeface(new FontFamily(name), primary.Style, primary.Weight, primary.Stretch);
+                    GlyphTypeface glyphs = candidate.TryGetGlyphTypeface();
+                    if (glyphs != null && Supplies(glyphs.CharacterToGlyphMap, codePoint)) return name;
+                }
+                catch (Exception e) when (e is not OutOfMemoryException)
+                {
+                    // Best effort: declining this run means the exception the caller would throw anyway, so a candidate
+                    // that cannot be resolved on this machine is simply not a candidate, whatever the reason.
+                    examinedAll = false;
+                }
+            }
+            return null;
+        }
+
+        private static bool Supplies(IDictionary<int, ushort> map, int codePoint) =>
+            map.TryGetValue(codePoint, out ushort glyph) && glyph != 0;
+
+        private static int CodePointAt(CharacterBufferRange range, int index, out int units)
+        {
+            char c = range[index];
+            if (char.IsHighSurrogate(c) && index + 1 < range.Length && char.IsLowSurrogate(range[index + 1]))
+            {
+                units = 2;
+                return char.ConvertToUtf32(c, range[index + 1]);
+            }
+            units = 1;
+            return c;
+        }
+
+        /// <summary>The original run's properties with only the typeface replaced.</summary>
+        private sealed class FallbackTypefaceProperties : TextRunProperties
+        {
+            private readonly TextRunProperties _inner;
+            private readonly Typeface _typeface;
+
+            internal FallbackTypefaceProperties(TextRunProperties inner, Typeface typeface)
+            {
+                _inner = inner;
+                _typeface = typeface;
+            }
+
+            public override Typeface Typeface => _typeface;
+            public override double FontRenderingEmSize => _inner.FontRenderingEmSize;
+            public override double FontHintingEmSize => _inner.FontHintingEmSize;
+            public override TextDecorationCollection TextDecorations => _inner.TextDecorations;
+            public override Brush ForegroundBrush => _inner.ForegroundBrush;
+            public override Brush BackgroundBrush => _inner.BackgroundBrush;
+            public override System.Globalization.CultureInfo CultureInfo => _inner.CultureInfo;
+            public override TextEffectCollection TextEffects => _inner.TextEffects;
+            public override BaselineAlignment BaselineAlignment => _inner.BaselineAlignment;
+            public override NumberSubstitution NumberSubstitution => _inner.NumberSubstitution;
+            public override TextRunTypographyProperties TypographyProperties => _inner.TypographyProperties;
+        }
+    }
+
+    /// <summary>
     /// Simple text run
     /// </summary>
     internal sealed class SimpleRun
@@ -2220,7 +2374,15 @@ namespace MS.Internal.TextFormatting
                 false,          //No support for isSideways
                 breakOnTabs,
                 out run.Length
-                ))
+                )
+                && !PortableFontFallback.TryApply(
+                    run,
+                    charBufferRange,
+                    formatter,
+                    widthLeft,
+                    emergencyWrap,
+                    breakOnTabs,
+                    pixelsPerDip))
             {
                 // Getting nominal glyphs is not supported by the font,
                 // or it is but it results in low typographic quality text
