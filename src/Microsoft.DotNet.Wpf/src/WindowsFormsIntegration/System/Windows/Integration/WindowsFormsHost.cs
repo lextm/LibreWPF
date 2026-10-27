@@ -486,7 +486,12 @@ namespace System.Windows.Forms.Integration
             // host has no Win32 parenting side effect, so create the adapter tree explicitly.
             // This preserves Control.Created/HandleCreated/Invalidated semantics for the real
             // source-built WinForms child while leaving the Windows path unchanged.
-            if (!OperatingSystem.IsWindows())
+            // The Windows lane can also run on LibreWinForms, whose controls have no Win32 handle
+            // until they are created explicitly: SetParent below then received a zero handle and
+            // HwndHost rejected the host ("BuildWindowCore failed to return the hosted child window
+            // handle"). Real WinForms hands out a handle on first access, so a handle that is still
+            // zero is the portable case.
+            if (!OperatingSystem.IsWindows() || HostContainerInternal.Handle == IntPtr.Zero)
             {
                 HostContainerInternal.CreateControl();
             }
