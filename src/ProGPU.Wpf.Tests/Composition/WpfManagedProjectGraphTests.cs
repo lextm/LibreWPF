@@ -10205,6 +10205,7 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(hwndHost, "if (!UsesNativeHwnd)", "UnsafeNativeMethods.GetParent(_hwnd)");
         Assert.Contains("if (!_hasDpiAwarenessContextTransition || !UsesNativeHwnd) return 1;", hwndHost, StringComparison.Ordinal);
         Assert.Contains("if (source is PortablePresentationSource portableSource)", hwndHost, StringComparison.Ordinal);
+        Assert.Contains("bool usePortableVisualHosting = (portableParent != null || hwndParent != IntPtr.Zero) && UsesPortableVisualHosting;", hwndHost, StringComparison.Ordinal);
         Assert.Contains("Loaded += OnLoaded;", hwndHost, StringComparison.Ordinal);
         Assert.Contains("Loaded -= OnLoaded;", hwndHost, StringComparison.Ordinal);
         Assert.Contains("private void OnLoaded(object sender, RoutedEventArgs e)", hwndHost, StringComparison.Ordinal);

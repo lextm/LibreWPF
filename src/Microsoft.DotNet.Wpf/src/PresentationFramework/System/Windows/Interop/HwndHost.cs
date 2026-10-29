@@ -559,8 +559,10 @@ namespace System.Windows.Interop
         ///     children, layout, input and disposal in the usual WPF way.
         ///     BuildWindowCore and DestroyWindowCore are not called for this
         ///     mode, and Handle remains zero. No child HwndSource is created or
-        ///     adopted. Native HWND presentation sources keep the existing
-        ///     BuildWindowCore/DestroyWindowCore contract on Windows.
+        ///     adopted. This applies under a native HwndSource as well, so a
+        ///     derived class whose content is not a real HWND (LibreWinForms
+        ///     controls) can opt in on Windows; classes that return false there
+        ///     keep the existing BuildWindowCore/DestroyWindowCore contract.
         /// </remarks>
         protected virtual bool UsesPortableVisualHosting => false;
 
@@ -1024,7 +1026,12 @@ namespace System.Windows.Interop
 
             try
             {
-                bool usePortableVisualHosting = portableParent != null && UsesPortableVisualHosting;
+                // A derived class that owns its visual children is hosted without a child window under a
+                // portable source and, equally, under a native HwndSource: there is nothing for the native
+                // parenting contract to build when the content is not a real HWND (LibreWinForms controls
+                // carry logical handles on every OS). The class opts in; hosts that return false on Windows
+                // keep the BuildWindowCore contract.
+                bool usePortableVisualHosting = (portableParent != null || hwndParent != IntPtr.Zero) && UsesPortableVisualHosting;
                 if (_isPortableVisualHost &&
                     (!usePortableVisualHosting || !ReferenceEquals(_portableParentSource, portableParent)))
                 {
