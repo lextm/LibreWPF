@@ -65,6 +65,7 @@
     <Reference Include="System.Drawing.Common" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Drawing.Common.dll" Private="false" />
     <Reference Include="System.Private.Windows.Core" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Private.Windows.Core.dll" Private="false" />
     <Reference Include="System.Private.Windows.GdiPlus" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Private.Windows.GdiPlus.dll" Private="false" />
+    <Reference Include="LibreWinForms.Platform" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)LibreWinForms.Platform.dll" Private="false" />
     <Reference Include="ProGPU.Backend" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Backend.dll" Private="false" />
     <Reference Include="ProGPU.Scene" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Scene.dll" Private="false" />
     <Reference Include="ProGPU.Text" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Text.dll" Private="false" />

@@ -31,7 +31,7 @@ namespace System.Windows.Forms.Integration
     [System.ComponentModel.DesignerCategory("code")]
     [ContentProperty("Child")]
     [DefaultEvent("ChildChanged")]
-    public class WindowsFormsHost : HwndHost, IKeyboardInputSink
+    public partial class WindowsFormsHost : HwndHost, IKeyboardInputSink
     {
         private SWM.Brush _cachedBackbrush;
 
