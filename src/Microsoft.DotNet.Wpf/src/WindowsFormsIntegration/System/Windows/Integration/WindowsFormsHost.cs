@@ -893,6 +893,12 @@ namespace System.Windows.Forms.Integration
             { _focusTarget.Enabled = true; }
         }
 
+        /// <summary>
+        ///     Offers a mnemonic character (Alt+letter) to the hosted controls. ProcessMnemonic is
+        ///     protected, so only the adapter, a Control itself, can call it.
+        /// </summary>
+        internal bool TryProcessMnemonic(char charCode) => ProcessMnemonic(charCode);
+
         internal IKeyboardInputSite HostKeyboardInputSite
         {
             get

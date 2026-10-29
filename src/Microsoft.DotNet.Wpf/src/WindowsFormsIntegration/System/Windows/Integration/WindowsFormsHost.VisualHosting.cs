@@ -100,6 +100,20 @@ namespace System.Windows.Forms.Integration
             return false;
         }
 
+        /// <summary>
+        ///     Alt+letter: let the hosted controls claim the mnemonic (a label's or button's underlined key).
+        /// </summary>
+        protected override bool OnMnemonicCore(ref System.Windows.Interop.MSG msg, ModifierKeys modifiers)
+        {
+            if (Child == null)
+            {
+                return false;
+            }
+
+            char charCode = (char)(msg.wParam.ToInt64() & 0xFFFF);
+            return charCode != '\0' && _hostContainerInternal.TryProcessMnemonic(charCode);
+        }
+
         private LibrePoint ToWinFormsPoint(System.Windows.Input.MouseEventArgs e)
         {
             Point position = e.GetPosition(this);
