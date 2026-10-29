@@ -141,9 +141,99 @@ namespace System.Windows.Forms.Integration
                 new LibreInputEvent(kind, Environment.TickCount64, CurrentModifiers(), default, null, ToWinFormsPoint(e), default, button));
         }
 
+        private static LibreKey ToLibreKey(Key key)
+        {
+            switch (key)
+            {
+                case Key.Return: return LibreKey.Enter;
+                case Key.Back: return LibreKey.Backspace;
+                case Key.Prior: return LibreKey.PageUp;
+                case Key.Next: return LibreKey.PageDown;
+                case Key.Oem1: return LibreKey.Semicolon;
+                case Key.OemPlus: return LibreKey.Equal;
+                case Key.OemComma: return LibreKey.Comma;
+                case Key.OemMinus: return LibreKey.Minus;
+                case Key.OemPeriod: return LibreKey.Period;
+                case Key.Oem2: return LibreKey.Slash;
+                case Key.Oem3: return LibreKey.GraveAccent;
+                case Key.Oem4: return LibreKey.LeftBracket;
+                case Key.Oem5: return LibreKey.Backslash;
+                case Key.Oem6: return LibreKey.RightBracket;
+                case Key.Oem7: return LibreKey.Apostrophe;
+                case Key.Decimal: return LibreKey.NumPadDecimal;
+                case Key.Divide: return LibreKey.NumPadDivide;
+                case Key.Multiply: return LibreKey.NumPadMultiply;
+                case Key.Subtract: return LibreKey.NumPadSubtract;
+                case Key.Add: return LibreKey.NumPadAdd;
+            }
+
+            // Letters, digits (D0-D9), arrows, F-keys, NumPad0-9, Space, Tab, Escape, Home, End, Insert,
+            // Delete and the modifiers share their names with LibreKey.
+            return Enum.TryParse(key.ToString(), out LibreKey libreKey) ? libreKey : LibreKey.Unknown;
+        }
+
+        private void ForwardKey(LibreInputEventKind kind, System.Windows.Input.KeyEventArgs e)
+        {
+            Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+            LibreControlHosting.DispatchInput(
+                _hostContainerInternal,
+                new LibreInputEvent(kind, Environment.TickCount64, CurrentModifiers(), ToLibreKey(key), null, default, default, LibrePointerButton.None));
+        }
+
+        protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (Child != null)
+            {
+                ForwardKey(LibreInputEventKind.KeyDown, e);
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnKeyUp(System.Windows.Input.KeyEventArgs e)
+        {
+            base.OnKeyUp(e);
+            if (Child != null)
+            {
+                ForwardKey(LibreInputEventKind.KeyUp, e);
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnTextInput(TextCompositionEventArgs e)
+        {
+            base.OnTextInput(e);
+            if (Child == null || string.IsNullOrEmpty(e.Text))
+            {
+                return;
+            }
+
+            LibreControlHosting.DispatchInput(
+                _hostContainerInternal,
+                new LibreInputEvent(LibreInputEventKind.TextInput, Environment.TickCount64, CurrentModifiers(), default, e.Text, default, default, LibrePointerButton.None));
+            e.Handled = true;
+        }
+
+        protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            base.OnGotKeyboardFocus(e);
+            LibreControlHosting.DispatchInput(
+                _hostContainerInternal,
+                new LibreInputEvent(LibreInputEventKind.FocusGained, Environment.TickCount64, LibreInputModifiers.None, default, null, default, default, LibrePointerButton.None));
+        }
+
+        protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            base.OnLostKeyboardFocus(e);
+            LibreControlHosting.DispatchInput(
+                _hostContainerInternal,
+                new LibreInputEvent(LibreInputEventKind.FocusLost, Environment.TickCount64, LibreInputModifiers.None, default, null, default, default, LibrePointerButton.None));
+        }
+
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
             base.OnMouseDown(e);
+            Focus();
             ForwardPointer(LibreInputEventKind.PointerDown, e, ToLibreButton(e.ChangedButton));
         }
 
