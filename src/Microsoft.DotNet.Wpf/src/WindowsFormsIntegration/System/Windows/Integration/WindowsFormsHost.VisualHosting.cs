@@ -100,7 +100,7 @@ namespace System.Windows.Forms.Integration
             return false;
         }
 
-        private LibrePoint ToWinFormsPoint(MouseEventArgs e)
+        private LibrePoint ToWinFormsPoint(System.Windows.Input.MouseEventArgs e)
         {
             Point position = e.GetPosition(this);
             return new LibrePoint(
@@ -129,7 +129,7 @@ namespace System.Windows.Forms.Integration
             return modifiers;
         }
 
-        private void ForwardPointer(LibreInputEventKind kind, MouseEventArgs e, LibrePointerButton button)
+        private void ForwardPointer(LibreInputEventKind kind, System.Windows.Input.MouseEventArgs e, LibrePointerButton button)
         {
             if (Child == null)
             {
@@ -153,13 +153,13 @@ namespace System.Windows.Forms.Integration
             ForwardPointer(LibreInputEventKind.PointerUp, e, ToLibreButton(e.ChangedButton));
         }
 
-        protected override void OnMouseMove(MouseEventArgs e)
+        protected override void OnMouseMove(System.Windows.Input.MouseEventArgs e)
         {
             base.OnMouseMove(e);
             ForwardPointer(LibreInputEventKind.PointerMove, e, LibrePointerButton.None);
         }
 
-        protected override void OnMouseLeave(MouseEventArgs e)
+        protected override void OnMouseLeave(System.Windows.Input.MouseEventArgs e)
         {
             base.OnMouseLeave(e);
             ForwardPointer(LibreInputEventKind.PointerLeave, e, LibrePointerButton.None);

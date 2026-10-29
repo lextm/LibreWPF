@@ -37,6 +37,7 @@
     <Compile Include="System\Windows\Integration\PropertyMap.cs" />
     <Compile Include="System\Windows\Integration\PropertyMappingExceptionEventArgs.cs" />
     <Compile Include="System\Windows\Integration\WindowsFormsHost.cs" />
+    <Compile Include="System\Windows\Integration\WindowsFormsHost.VisualHosting.cs" />
     <Compile Include="System\Windows\Integration\WindowsFormsHostPropertyMap.cs" />
   </ItemGroup>
   <ItemGroup>
