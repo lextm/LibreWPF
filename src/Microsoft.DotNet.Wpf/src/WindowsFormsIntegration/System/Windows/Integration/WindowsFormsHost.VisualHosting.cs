@@ -180,24 +180,45 @@ namespace System.Windows.Forms.Integration
                 new LibreInputEvent(kind, Environment.TickCount64, CurrentModifiers(), ToLibreKey(key), null, default, default, LibrePointerButton.None));
         }
 
+        // Tab moves between the hosted controls while there is a next tab stop in that direction. At either
+        // end the key is left unhandled so WPF takes focus out of the host (the WinForms adapter never wraps).
+        private bool IsTabKey(System.Windows.Input.KeyEventArgs e) =>
+            e.Key == Key.Tab && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt)) == ModifierKeys.None;
+
+        private bool TryTabWithinChild()
+        {
+            bool forward = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.None;
+            return _hostContainerInternal.SelectNextControl(_hostContainerInternal.ActiveControl, forward, true, true, false);
+        }
+
         protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (Child != null)
+            if (Child == null)
             {
-                ForwardKey(LibreInputEventKind.KeyDown, e);
-                e.Handled = true;
+                return;
             }
+
+            if (IsTabKey(e))
+            {
+                e.Handled = TryTabWithinChild();
+                return;
+            }
+
+            ForwardKey(LibreInputEventKind.KeyDown, e);
+            e.Handled = true;
         }
 
         protected override void OnKeyUp(System.Windows.Input.KeyEventArgs e)
         {
             base.OnKeyUp(e);
-            if (Child != null)
+            if (Child == null || IsTabKey(e))
             {
-                ForwardKey(LibreInputEventKind.KeyUp, e);
-                e.Handled = true;
+                return;
             }
+
+            ForwardKey(LibreInputEventKind.KeyUp, e);
+            e.Handled = true;
         }
 
         protected override void OnTextInput(TextCompositionEventArgs e)
